@@ -1,7 +1,7 @@
 #! /bin/sh -e
 # tup - A file-based build system
 #
-# Copyright (C) 2009-2021  Mike Shal <marfey@gmail.com>
+# Copyright (C) 2009-2024  Mike Shal <marfey@gmail.com>
 #
 # This program is free software; you can redistribute it and/or modify
 # it under the terms of the GNU General Public License version 2 as
@@ -19,12 +19,11 @@
 # Try to write a file in a different directory using %f.
 
 . ./tup.sh
-tmkdir sub
+mkdir sub
 touch sub/foo.c
 cat > Tupfile << HERE
 : sub/foo.c |> gcc -c %f -o %o |> %f.o
 HERE
-tup touch sub/foo.c Tupfile
 update
 
 check_exist sub/foo.c.o

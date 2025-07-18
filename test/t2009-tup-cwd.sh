@@ -1,7 +1,7 @@
 #! /bin/sh -e
 # tup - A file-based build system
 #
-# Copyright (C) 2009-2021  Mike Shal <marfey@gmail.com>
+# Copyright (C) 2009-2024  Mike Shal <marfey@gmail.com>
 #
 # This program is free software; you can redistribute it and/or modify
 # it under the terms of the GNU General Public License version 2 as
@@ -19,18 +19,18 @@
 # Test the TUP_CWD variable
 
 . ./tup.sh
-tmkdir fs
+mkdir fs
 cat > fs/Tupfile << HERE
 include ../bar/Install.tup
 include ../tab/Install.tup
 : foreach \$(lib) |> cp %f %o |> %b
 HERE
-tmkdir bar
+mkdir bar
 cat > bar/Install.tup << HERE
 lib += \$(TUP_CWD)/foo.so
 HERE
 
-tmkdir tab
+mkdir tab
 cat > tab/Install.tup << HERE
 lib += \$(TUP_CWD)/blah.so
 HERE
@@ -38,7 +38,6 @@ HERE
 touch bar/foo.so
 touch tab/blah.so
 
-tup touch fs/Tupfile bar/Install.tup tab/Install.tup bar/foo.so tab/blah.so
 update
 tup_object_exist fs foo.so blah.so
 check_exist fs/foo.so fs/blah.so

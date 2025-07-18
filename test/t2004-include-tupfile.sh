@@ -1,7 +1,7 @@
 #! /bin/sh -e
 # tup - A file-based build system
 #
-# Copyright (C) 2008-2021  Mike Shal <marfey@gmail.com>
+# Copyright (C) 2008-2024  Mike Shal <marfey@gmail.com>
 #
 # This program is free software; you can redistribute it and/or modify
 # it under the terms of the GNU General Public License version 2 as
@@ -34,7 +34,6 @@ HERE
 
 echo "int main(void) {return 0;}" > foo.c
 touch bar.c
-tup touch foo.c bar.c Tupfile Tupfile.vars
 update
 tup_object_exist . foo.c bar.c
 tup_object_exist . "gcc -c foo.c -o foo.o -DFOO=1 -DBAR=1"
@@ -49,7 +48,6 @@ CCARGS := -DFOO=1
 CCARGS += -DBAR=1
 CC = \$(CC)
 HERE
-tup touch Tupfile.vars
 update
 tup_object_no_exist . "gcc -c foo.c -o foo.o -DFOO=1 -DBAR=1"
 tup_object_no_exist . "gcc -c bar.c -o bar.o -DFOO=1 -DBAR=1"

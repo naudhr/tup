@@ -1,7 +1,7 @@
 #! /bin/sh -e
 # tup - A file-based build system
 #
-# Copyright (C) 2011-2021  Mike Shal <marfey@gmail.com>
+# Copyright (C) 2011-2024  Mike Shal <marfey@gmail.com>
 #
 # This program is free software; you can redistribute it and/or modify
 # it under the terms of the GNU General Public License version 2 as
@@ -44,22 +44,19 @@ int main(void)
 	return 0;
 }
 HERE
-tup touch target.txt
+touch target.txt
 ln -s target.txt slink.txt
 cat > Tupfile << HERE
 : foo.c |> gcc %f -o %o |> foo
 : foo |> ./foo |>
 HERE
-tup touch slink.txt Tupfile
 update
 
 rm slink.txt
-tup rm slink.txt
 cat > Tupfile << HERE
 : foo.c |> gcc %f -o %o |> foo
 : foo |> ln -s target.txt slink.txt && ./foo |> slink.txt
 HERE
-tup touch Tupfile
 update
 
 eotup

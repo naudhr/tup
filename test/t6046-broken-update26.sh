@@ -1,7 +1,7 @@
 #! /bin/sh -e
 # tup - A file-based build system
 #
-# Copyright (C) 2011-2021  Mike Shal <marfey@gmail.com>
+# Copyright (C) 2011-2024  Mike Shal <marfey@gmail.com>
 #
 # This program is free software; you can redistribute it and/or modify
 # it under the terms of the GNU General Public License version 2 as
@@ -25,13 +25,11 @@ check_no_windows shell
 cat > Tupfile << HERE
 : |> cat foo 2> /dev/null || true; touch foo |>
 HERE
-tup touch Tupfile
 update_fail_msg "File.*foo.*was written to"
 
 cat > Tupfile << HERE
 : |> cat foo 2> /dev/null || true; touch foo |> foo
 HERE
-tup touch Tupfile
 update
 
 eotup

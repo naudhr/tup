@@ -1,7 +1,7 @@
 #! /bin/sh -e
 # tup - A file-based build system
 #
-# Copyright (C) 2018-2021  Mike Shal <marfey@gmail.com>
+# Copyright (C) 2018-2024  Mike Shal <marfey@gmail.com>
 #
 # This program is free software; you can redistribute it and/or modify
 # it under the terms of the GNU General Public License version 2 as
@@ -19,12 +19,12 @@
 # Similar to t4195, but this time we create a new file in place of the target directory.
 . ./tup.sh
 
-tmkdir sub
+mkdir sub
 cat > sub/Tupfile << HERE
 : |> touch %o |> ../out/foo.txt
 HERE
-tmkdir out
-tup touch out/bar.txt
+mkdir out
+touch out/bar.txt
 update
 
 rm -rf out

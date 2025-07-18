@@ -1,7 +1,7 @@
 #! /bin/sh -e
 # tup - A file-based build system
 #
-# Copyright (C) 2011-2021  Mike Shal <marfey@gmail.com>
+# Copyright (C) 2011-2024  Mike Shal <marfey@gmail.com>
 #
 # This program is free software; you can redistribute it and/or modify
 # it under the terms of the GNU General Public License version 2 as
@@ -36,13 +36,10 @@ echo 'this is B' > b.txt
 cat > Tupfile << HERE
 : foreach *.txt |> cp %f %o |> %B.out
 HERE
-tup touch Tupfile a.txt b.txt
 update
 
 echo 'this is A' | diff - a.out
 echo 'this is B' | diff - b.out
-
-sleep 1
 
 mv b.txt c.txt
 mv a.txt b.txt

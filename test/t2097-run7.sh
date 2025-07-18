@@ -1,7 +1,7 @@
 #! /bin/sh -e
 # tup - A file-based build system
 #
-# Copyright (C) 2011-2021  Mike Shal <marfey@gmail.com>
+# Copyright (C) 2011-2024  Mike Shal <marfey@gmail.com>
 #
 # This program is free software; you can redistribute it and/or modify
 # it under the terms of the GNU General Public License version 2 as
@@ -32,9 +32,8 @@ else:
 	print(" ".join([": |> echo foo", var, "|>"]))
 HERE
 cat > Tupfile << HERE
-run PYTHONPATH=../.. python -B foo.py
+run PYTHONPATH=../.. python3 -B foo.py
 HERE
-tup touch Tupfile foo.py
 update
 
 tup_object_exist . 'echo None'

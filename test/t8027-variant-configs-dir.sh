@@ -1,7 +1,7 @@
 #! /bin/sh -e
 # tup - A file-based build system
 #
-# Copyright (C) 2012-2021  Mike Shal <marfey@gmail.com>
+# Copyright (C) 2012-2024  Mike Shal <marfey@gmail.com>
 #
 # This program is free software; you can redistribute it and/or modify
 # it under the terms of the GNU General Public License version 2 as
@@ -20,10 +20,10 @@
 . ./tup.sh
 check_no_windows symlink
 
-tmkdir build-default
-tmkdir build-debug
+mkdir build-default
+mkdir build-debug
 
-tmkdir configs
+mkdir configs
 
 cat > Tupfile << HERE
 ifeq (@(DEBUG),y)
@@ -35,7 +35,6 @@ echo "CONFIG_DEBUG=y" > configs/debug.config
 echo "" > configs/default.config
 ln -s ../configs/debug.config build-debug/tup.config
 ln -s ../configs/default.config build-default/tup.config
-tup touch Tupfile
 
 update
 
@@ -49,7 +48,6 @@ tup_object_no_exist build-default build-debug
 tup_object_no_exist build-debug build-default
 
 echo "" > configs/debug.config
-tup touch configs/debug.config
 update
 
 check_exist build-default/bar

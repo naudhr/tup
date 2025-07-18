@@ -1,7 +1,7 @@
 #! /bin/sh -e
 # tup - A file-based build system
 #
-# Copyright (C) 2015-2021  Mike Shal <marfey@gmail.com>
+# Copyright (C) 2015-2024  Mike Shal <marfey@gmail.com>
 #
 # This program is free software; you can redistribute it and/or modify
 # it under the terms of the GNU General Public License version 2 as
@@ -19,18 +19,18 @@
 # Make sure touching the Tupfile doesn't delete the tup_preserve files.
 . ./tup.sh
 
-tmkdir build
+mkdir build
 
 cat > Tupfile << HERE
 : foreach *.html |> !tup_preserve |>
 : |> touch %o |> gen.txt
 HERE
-tup touch Tupfile file.html file2.html build/tup.config
+touch file.html file2.html build/tup.config
 update
 
 check_exist build/file.html build/file2.html build/gen.txt
 
-tup touch Tupfile
+touch Tupfile
 update
 
 check_exist build/file.html build/file2.html build/gen.txt

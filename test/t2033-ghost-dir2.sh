@@ -1,7 +1,7 @@
 #! /bin/sh -e
 # tup - A file-based build system
 #
-# Copyright (C) 2009-2021  Mike Shal <marfey@gmail.com>
+# Copyright (C) 2009-2024  Mike Shal <marfey@gmail.com>
 #
 # This program is free software; you can redistribute it and/or modify
 # it under the terms of the GNU General Public License version 2 as
@@ -29,7 +29,6 @@ cat > Tupfile << HERE
 : |> ./ok.sh > %o |> output.txt
 HERE
 chmod +x ok.sh
-tup touch ok.sh Tupfile
 update
 echo nofile | diff output.txt -
 
@@ -59,7 +58,6 @@ echo nofile | diff output.txt -
 
 # Delete the file
 rm -f secret
-tup rm secret
 update --no-scan
 if [ $filedep = 1 ]; then
 	tup_dep_exist secret ghost . './ok.sh > output.txt'
@@ -69,13 +67,13 @@ fi
 echo nofile | diff output.txt -
 
 # Once the dir exists we should get a dependency on 'ghost'
-tmkdir secret
+mkdir secret
+tup touch secret
 update --no-scan
 tup_dep_exist secret ghost . './ok.sh > output.txt'
 
 # Now we finally re-create ghost. The command should execute at this point.
 echo 'alive' > secret/ghost
-tup touch secret/ghost
 update
 echo alive | diff output.txt -
 

@@ -1,7 +1,7 @@
 #! /bin/sh -e
 # tup - A file-based build system
 #
-# Copyright (C) 2009-2021  Mike Shal <marfey@gmail.com>
+# Copyright (C) 2009-2024  Mike Shal <marfey@gmail.com>
 #
 # This program is free software; you can redistribute it and/or modify
 # it under the terms of the GNU General Public License version 2 as
@@ -28,7 +28,7 @@ srcs = *.c
 var_bar = BREAK
 HERE
 
-tup touch Tupfile foo.c bar.c
+touch foo.c bar.c
 parse
 tup_object_exist . "gcc -DBLAH=hey -c foo.c -o foo.o"
 tup_object_exist . "gcc -DBLAH=yo -c bar.c -o bar.o"

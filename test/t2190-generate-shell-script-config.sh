@@ -1,7 +1,7 @@
 #! /bin/sh -e
 # tup - A file-based build system
 #
-# Copyright (C) 2014-2021  Mike Shal <marfey@gmail.com>
+# Copyright (C) 2014-2024  Mike Shal <marfey@gmail.com>
 #
 # This program is free software; you can redistribute it and/or modify
 # it under the terms of the GNU General Public License version 2 as
@@ -23,8 +23,6 @@
 # 'tup generate' runs without a tup directory
 rm -rf .tup
 
-mkdir sub1
-mkdir sub2
 cat > Tupfile << HERE
 ifeq (@(FOO),1)
 : |> echo foo |>
@@ -43,7 +41,7 @@ gitignore_good 'echo bar' $generate_script_name
 gitignore_bad 'echo foo' $generate_script_name
 gitignore_bad 'echo baz' $generate_script_name
 
-generate $generate_script_name --config configs/foo.config
+generate --config configs/foo.config $generate_script_name
 gitignore_bad 'echo bar' $generate_script_name
 gitignore_good 'echo foo' $generate_script_name
 gitignore_bad 'echo baz' $generate_script_name

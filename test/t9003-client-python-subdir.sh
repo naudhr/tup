@@ -1,7 +1,7 @@
 #! /bin/sh -e
 # tup - A file-based build system
 #
-# Copyright (C) 2011-2021  Mike Shal <marfey@gmail.com>
+# Copyright (C) 2011-2024  Mike Shal <marfey@gmail.com>
 #
 # This program is free software; you can redistribute it and/or modify
 # it under the terms of the GNU General Public License version 2 as
@@ -22,7 +22,7 @@
 check_no_windows client
 check_python
 
-tmkdir sub
+mkdir sub
 
 cat > sub/foo.py << HERE
 import tup_client
@@ -34,9 +34,8 @@ if tup_client.config_var('BAZ') is not None:
 	raise Exception("No: BAZ")
 HERE
 cat > sub/Tupfile << HERE
-: |> PYTHONPATH=../../.. python -B foo.py |>
+: |> PYTHONPATH=../../.. python3 -B foo.py |>
 HERE
-tup touch sub/Tupfile
 update
 
 tup_object_exist tup.config BAZ
@@ -53,7 +52,6 @@ if tup_client.config_var('BAR') != "hey":
 if tup_client.config_var('BAZ') is not None:
 	raise Exception("No: BAZ")
 HERE
-tup touch sub/foo.py
 update
 
 tup_object_exist tup.config BAZ
@@ -65,7 +63,6 @@ if tup_client.config_var('FOO') != "y":
 if tup_client.config_var('BAR') != "hey":
 	raise Exception("No: BAR")
 HERE
-tup touch sub/foo.py
 update
 
 tup_object_no_exist tup.config BAZ

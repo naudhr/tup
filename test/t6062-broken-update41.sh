@@ -1,7 +1,7 @@
 #! /bin/sh -e
 # tup - A file-based build system
 #
-# Copyright (C) 2012-2021  Mike Shal <marfey@gmail.com>
+# Copyright (C) 2012-2024  Mike Shal <marfey@gmail.com>
 #
 # This program is free software; you can redistribute it and/or modify
 # it under the terms of the GNU General Public License version 2 as
@@ -25,14 +25,13 @@ check_no_windows shell
 cat > Tupfile << HERE
 : |> if [ -f 'gcc -c foo.c' ]; then true; fi |>
 HERE
-tup touch Tupfile
 update
 
 cat > Tupfile << HERE
 : |> if [ -f 'gcc -c foo.c' ]; then true; fi |>
 : |> gcc -c foo.c |> foo.o
 HERE
-tup touch foo.c Tupfile
+touch foo.c
 update_fail_msg "Unable to create command.*database as type 'ghost'"
 
 eotup

@@ -1,7 +1,7 @@
 #! /bin/sh -e
 # tup - A file-based build system
 #
-# Copyright (C) 2009-2021  Mike Shal <marfey@gmail.com>
+# Copyright (C) 2009-2024  Mike Shal <marfey@gmail.com>
 #
 # This program is free software; you can redistribute it and/or modify
 # it under the terms of the GNU General Public License version 2 as
@@ -28,7 +28,6 @@ cat > Tupfile << HERE
 HERE
 
 echo "#define FOO 3" > foo.h.in
-tup touch foo.h.in Tupfile
 update
 
 cat > foo.c << HERE
@@ -39,7 +38,6 @@ cat > Tupfile << HERE
 : foo.h.in |> cp %f %o |> %B
 : foreach *.c |> gcc -c %f -o %o |> %B.o
 HERE
-tup touch foo.c Tupfile
 update_fail
 
 eotup

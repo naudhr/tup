@@ -1,7 +1,7 @@
 #! /bin/sh -e
 # tup - A file-based build system
 #
-# Copyright (C) 2011-2021  Mike Shal <marfey@gmail.com>
+# Copyright (C) 2011-2024  Mike Shal <marfey@gmail.com>
 #
 # This program is free software; you can redistribute it and/or modify
 # it under the terms of the GNU General Public License version 2 as
@@ -40,14 +40,12 @@ cat > Tupfile << HERE
 : foo.c |> gcc %f -o %o |> foo
 : foo |> (echo hey; echo there) > %o; ./foo |> tmp.txt
 HERE
-tup touch Tupfile foo.c
 update
 
 echo 'hey' | diff - tmp.txt
 cat > Tupfile << HERE
 : foo.c |> gcc %f -o %o |> foo
 HERE
-tup touch Tupfile
 update
 check_not_exist tmp.txt
 
@@ -55,7 +53,7 @@ cat > Tupfile << HERE
 : foo.c |> gcc %f -o %o |> foo
 : foo |> ./foo |>
 HERE
-tup touch Tupfile tmp.txt
+touch tmp.txt
 update_fail_msg "tup error.*truncate"
 
 eotup

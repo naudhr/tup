@@ -1,7 +1,7 @@
 #! /bin/sh -e
 # tup - A file-based build system
 #
-# Copyright (C) 2012-2021  Mike Shal <marfey@gmail.com>
+# Copyright (C) 2012-2024  Mike Shal <marfey@gmail.com>
 #
 # This program is free software; you can redistribute it and/or modify
 # it under the terms of the GNU General Public License version 2 as
@@ -20,10 +20,10 @@
 # dirs going away.
 . ./tup.sh
 
-tmkdir build
-tmkdir build-debug
+mkdir build
+mkdir build-debug
 
-tmkdir sub
+mkdir sub
 cat > sub/Tupfile << HERE
 ifeq (@(DEBUG),y)
 : |> touch %o |> foo
@@ -33,7 +33,6 @@ HERE
 
 echo "" > build/tup.config
 echo "CONFIG_DEBUG=y" > build-debug/tup.config
-tup touch build/tup.config build-debug/tup.config sub/Tupfile
 
 update
 
@@ -45,7 +44,6 @@ ifeq (@(DEBUG),y)
 : |> touch %o |> foo
 endif
 HERE
-tup touch sub/Tupfile
 update
 
 check_exist build/sub
@@ -61,7 +59,6 @@ ifeq (@(DEBUG),y)
 endif
 : |> touch %o |> bar
 HERE
-tup touch sub/Tupfile
 
 update
 

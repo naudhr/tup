@@ -1,7 +1,7 @@
 #! /bin/sh -e
 # tup - A file-based build system
 #
-# Copyright (C) 2012-2021  Mike Shal <marfey@gmail.com>
+# Copyright (C) 2012-2024  Mike Shal <marfey@gmail.com>
 #
 # This program is free software; you can redistribute it and/or modify
 # it under the terms of the GNU General Public License version 2 as
@@ -32,7 +32,6 @@ tup_dep_exist . bar . '<group>'
 cat > Tupfile << HERE
 : |> touch bar |> bar <group>
 HERE
-tup touch Tupfile
 update
 
 tup_object_no_exist . foo
@@ -41,7 +40,6 @@ tup_dep_exist . bar . '<group>'
 # Remove 'touch bar'. Now the group should be gone.
 cat > Tupfile << HERE
 HERE
-tup touch Tupfile
 update
 
 tup_object_no_exist . '<group>'

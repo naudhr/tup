@@ -1,7 +1,7 @@
 #! /bin/sh -e
 # tup - A file-based build system
 #
-# Copyright (C) 2012-2021  Mike Shal <marfey@gmail.com>
+# Copyright (C) 2012-2024  Mike Shal <marfey@gmail.com>
 #
 # This program is free software; you can redistribute it and/or modify
 # it under the terms of the GNU General Public License version 2 as
@@ -19,8 +19,8 @@
 # Try tup.getvariantdir()
 . ./tup.sh
 
-tmkdir build
-tmkdir sub
+mkdir build
+mkdir sub
 
 cat > Tupfile.lua << HERE
 headers = tup.rule('touch %o', {'foo.h'})
@@ -34,7 +34,7 @@ cat > foo.c << HERE
 #include "foo.h"
 #include "bar.h"
 HERE
-tup touch build/tup.config Tupfile.lua bar.h
+touch build/tup.config bar.h
 update
 
 eotup

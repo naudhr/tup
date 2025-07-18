@@ -1,7 +1,7 @@
 #! /bin/sh -e
 # tup - A file-based build system
 #
-# Copyright (C) 2016-2021  Mike Shal <marfey@gmail.com>
+# Copyright (C) 2016-2024  Mike Shal <marfey@gmail.com>
 #
 # This program is free software; you can redistribute it and/or modify
 # it under the terms of the GNU General Public License version 2 as
@@ -20,7 +20,7 @@
 
 . ./tup.sh
 
-tmkdir sub
+mkdir sub
 cat > sub/Tupfile << HERE
 : |> touch %o |> foo.txt
 HERE
@@ -34,7 +34,6 @@ cat > sub/Tupfile << HERE
 : |> touch %o |> foo.txt
 : foo.txt |> !tup_preserve |>
 HERE
-tup touch sub/Tupfile
 
 update_fail_msg "Explicitly named file 'foo.txt' not found in subdir 'sub'"
 
@@ -42,7 +41,6 @@ cat > sub/Tupfile << HERE
 : |> touch %o |> foo.txt
 : bar.txt |> !tup_preserve |>
 HERE
-tup touch sub/Tupfile
 update
 
 cmp sub/bar.txt build/sub/bar.txt

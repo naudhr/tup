@@ -1,7 +1,7 @@
 #! /bin/sh -e
 # tup - A file-based build system
 #
-# Copyright (C) 2014-2021  Mike Shal <marfey@gmail.com>
+# Copyright (C) 2014-2024  Mike Shal <marfey@gmail.com>
 #
 # This program is free software; you can redistribute it and/or modify
 # it under the terms of the GNU General Public License version 2 as
@@ -23,9 +23,9 @@ check_no_windows run-script
 check_bash
 
 # Use a variant to make sure we don't get double directories
-tmkdir build
+mkdir build
 touch build/tup.config
-tmkdir sub
+mkdir sub
 touch sub/foo.txt
 touch bar.txt baz.txt
 

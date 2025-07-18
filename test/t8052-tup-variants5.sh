@@ -1,7 +1,7 @@
 #! /bin/sh -e
 # tup - A file-based build system
 #
-# Copyright (C) 2012-2021  Mike Shal <marfey@gmail.com>
+# Copyright (C) 2012-2024  Mike Shal <marfey@gmail.com>
 #
 # This program is free software; you can redistribute it and/or modify
 # it under the terms of the GNU General Public License version 2 as
@@ -18,9 +18,8 @@
 
 # Use the 'tup variant' command on config files without any suffix.
 . ./tup.sh
-check_no_windows tup variant
 
-tmkdir configs
+mkdir configs
 
 cat > Tupfile << HERE
 ifeq (@(DEBUG),y)
@@ -31,7 +30,6 @@ HERE
 echo "CONFIG_DEBUG=y" > configs/debug
 echo "" > configs/default
 tup variant configs/*
-tup touch Tupfile
 update
 
 check_exist build-default/bar
@@ -44,7 +42,9 @@ tup_object_no_exist build-default build-debug
 tup_object_no_exist build-debug build-default
 
 echo "" > configs/debug
-tup touch configs/debug
+if [ "$in_windows" = "1" ]; then
+	cp configs/debug build-debug/tup.config
+fi
 update
 
 check_exist build-default/bar

@@ -1,7 +1,7 @@
 #! /bin/sh -e
 # tup - A file-based build system
 #
-# Copyright (C) 2013-2021  Mike Shal <marfey@gmail.com>
+# Copyright (C) 2013-2024  Mike Shal <marfey@gmail.com>
 #
 # This program is free software; you can redistribute it and/or modify
 # it under the terms of the GNU General Public License version 2 as
@@ -21,7 +21,7 @@
 . ./tup.sh
 
 varsetall FOO=y
-tmkdir sub
+mkdir sub
 cat > sub/Tupfile << HERE
 ifeq (@(FOO),1)
 : |> echo foo |>
@@ -29,7 +29,8 @@ endif
 HERE
 update
 
-tup touch tup.config
+touch tup.config
+tup scan
 
 tup graph --dirs > ok.dot
 gitignore_good tup.config ok.dot

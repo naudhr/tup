@@ -1,7 +1,7 @@
 #! /bin/sh -e
 # tup - A file-based build system
 #
-# Copyright (C) 2012-2021  Mike Shal <marfey@gmail.com>
+# Copyright (C) 2012-2024  Mike Shal <marfey@gmail.com>
 #
 # This program is free software; you can redistribute it and/or modify
 # it under the terms of the GNU General Public License version 2 as
@@ -18,7 +18,6 @@
 
 # Move a variant directory to the src tree with the monitor running.
 . ./tup.sh
-check_no_windows tup variant
 check_monitor_supported
 
 monitor
@@ -40,10 +39,11 @@ mv build-foo sub
 update
 
 # When we move the variant directory and detect with the monitor, all of the
-# generated nodes become normal nodes.
-check_exist sub/foo.o sub/bar.o
+# files simply get rebuilt.
 check_exist sub/build-foo/sub/foo.o sub/build-foo/sub/bar.o
 
+# Even though the variant is valid, there are no variables because tup.config
+# is now an invalid symlink.
 tup_object_no_exist sub/build-foo/tup.config FOO
 
 stop_monitor

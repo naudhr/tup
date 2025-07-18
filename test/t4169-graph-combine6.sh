@@ -1,7 +1,7 @@
 #! /bin/sh -e
 # tup - A file-based build system
 #
-# Copyright (C) 2015-2021  Mike Shal <marfey@gmail.com>
+# Copyright (C) 2015-2024  Mike Shal <marfey@gmail.com>
 #
 # This program is free software; you can redistribute it and/or modify
 # it under the terms of the GNU General Public License version 2 as
@@ -29,11 +29,11 @@ cat > Tupfile << HERE
 : foo.o |> cat foo.o |>
 : |> cat bar.h foo.h > blah.h |> blah.h
 HERE
-tup touch foo.h bar.h Tupfile
+touch foo.h bar.h
 update
 
 tup graph . --combine > ok.dot
 gitignore_good 'cat.*bar.h.*2 commands' ok.dot
-gitignore_good 'foo*\.h.*2 files' ok.dot
+gitignore_good 'bar*\.h.*2 files' ok.dot
 
 eotup

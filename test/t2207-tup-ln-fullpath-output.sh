@@ -1,7 +1,7 @@
 #! /bin/sh -e
 # tup - A file-based build system
 #
-# Copyright (C) 2017-2021  Mike Shal <marfey@gmail.com>
+# Copyright (C) 2017-2024  Mike Shal <marfey@gmail.com>
 #
 # This program is free software; you can redistribute it and/or modify
 # it under the terms of the GNU General Public License version 2 as
@@ -21,11 +21,11 @@
 . ./tup.sh
 check_no_windows paths
 
-tmkdir sub
+mkdir sub
 cat > sub/Tupfile << HERE
 : input.txt |> !tup_ln |> `pwd -P`/sub/link.txt
 HERE
-tup touch sub/input.txt
+touch sub/input.txt
 update
 
 tup_dep_exist sub "!tup_ln input.txt `pwd -P`/sub/link.txt" sub link.txt

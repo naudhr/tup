@@ -1,7 +1,7 @@
 #! /bin/sh -e
 # tup - A file-based build system
 #
-# Copyright (C) 2013-2021  Mike Shal <marfey@gmail.com>
+# Copyright (C) 2013-2024  Mike Shal <marfey@gmail.com>
 #
 # This program is free software; you can redistribute it and/or modify
 # it under the terms of the GNU General Public License version 2 as
@@ -25,7 +25,7 @@ files.extra_inputs = tup.rule('echo blah > %o', {'foo.h'})
 tup.foreach_rule(files, 'gcc -c %f -o %o', '%B.o')
 HERE
 
-tup touch Tupfile.lua foo.c bar.c
+touch foo.c bar.c
 parse
 tup_sticky_exist . foo.h . "gcc -c foo.c -o foo.o"
 tup_sticky_exist . foo.h . "gcc -c bar.c -o bar.o"

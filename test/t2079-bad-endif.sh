@@ -1,7 +1,7 @@
 #! /bin/sh -e
 # tup - A file-based build system
 #
-# Copyright (C) 2011-2021  Mike Shal <marfey@gmail.com>
+# Copyright (C) 2011-2024  Mike Shal <marfey@gmail.com>
 #
 # This program is free software; you can redistribute it and/or modify
 # it under the terms of the GNU General Public License version 2 as
@@ -27,7 +27,7 @@ ifeq (1,2)
 endif #foo == 2
 : b.c |> !cc |> b.o
 HERE
-tup touch a.c b.c Tupfile
+touch a.c b.c
 parse_fail_msg "missing endif before EOF"
 
 cat > Tupfile << HERE
@@ -37,7 +37,6 @@ ifeq (1,2)
 endif
 : b.c |> !cc |> b.o
 HERE
-tup touch Tupfile
 parse
 tup_object_exist . "gcc -c b.c -o b.o"
 

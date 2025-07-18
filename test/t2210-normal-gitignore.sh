@@ -1,7 +1,7 @@
 #! /bin/sh -e
 # tup - A file-based build system
 #
-# Copyright (C) 2014-2021  Mike Shal <marfey@gmail.com>
+# Copyright (C) 2014-2024  Mike Shal <marfey@gmail.com>
 #
 # This program is free software; you can redistribute it and/or modify
 # it under the terms of the GNU General Public License version 2 as
@@ -32,32 +32,33 @@ cat > .gitignore << HERE
 ok.txt
 HERE
 cp .gitignore backup
-tup touch ok.txt
+touch ok.txt
 update
 
 gitignore_good ok.txt .gitignore
 gitignore_bad foo .gitignore
+gitignore_bad .gitignore .gitignore
 
 cat > Tupfile << HERE
 .gitignore
 : |> touch foo |> foo
 HERE
-tup touch Tupfile
 update
 
 gitignore_good ok.txt .gitignore
 gitignore_good foo .gitignore
+gitignore_bad .gitignore .gitignore
 
 # Go back to the way things were, which should leave us with our original
 # .gitignore file.
 cat > Tupfile << HERE
 : |> touch foo |> foo
 HERE
-tup touch Tupfile
 update
 
 gitignore_good ok.txt .gitignore
 gitignore_bad foo .gitignore
+gitignore_bad .gitignore .gitignore
 
 diff backup .gitignore
 

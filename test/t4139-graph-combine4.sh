@@ -1,7 +1,7 @@
 #! /bin/sh -e
 # tup - A file-based build system
 #
-# Copyright (C) 2013-2021  Mike Shal <marfey@gmail.com>
+# Copyright (C) 2013-2024  Mike Shal <marfey@gmail.com>
 #
 # This program is free software; you can redistribute it and/or modify
 # it under the terms of the GNU General Public License version 2 as
@@ -28,11 +28,11 @@ cat > Tupfile << HERE
 : foo.h |> cp %f %o |> outdir/%b | <generated-headers>
 : bar.h |> cp %f %o |> outdir/%b | <generated-headers>
 HERE
-tup touch foo.idl bar.idl Tupfile
+touch foo.idl bar.idl
 update
 
 tup graph . --combine > ok.dot
-gitignore_good 'node.*\.idl.*3 files' ok.dot
+gitignore_good 'node.*\(\.idl\|ok.sh\).*3 files' ok.dot
 gitignore_good 'node.*sh ok.sh.*idl.*2 commands' ok.dot
 gitignore_good 'node.*\.h.*2 files' ok.dot
 gitignore_good 'node.*cp.*\.h.*2 commands' ok.dot

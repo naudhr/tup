@@ -1,7 +1,7 @@
 #! /bin/sh -e
 # tup - A file-based build system
 #
-# Copyright (C) 2009-2021  Mike Shal <marfey@gmail.com>
+# Copyright (C) 2009-2024  Mike Shal <marfey@gmail.com>
 #
 # This program is free software; you can redistribute it and/or modify
 # it under the terms of the GNU General Public License version 2 as
@@ -20,17 +20,15 @@
 
 . ./tup.sh
 check_no_windows symlink
-tmkdir sub
+mkdir sub
 ln -s ghost sub/foo
 cat > sub/Tupfile << HERE
 : |> cat foo 2> /dev/null || true |>
 HERE
-tup touch sub/foo sub/Tupfile
 update
 tup_object_exist sub ghost foo
 
 rm -f sub/foo sub/Tupfile
-tup rm sub/foo sub/Tupfile
 update
 tup_object_no_exist sub ghost foo
 

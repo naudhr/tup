@@ -12,6 +12,11 @@ CFLAGS += -DSQLITE_THREADSAFE=0
 # No need to depend on libdl here.
 CFLAGS += -DSQLITE_OMIT_LOAD_EXTENSION
 
+# No need for these features.
+CFLAGS += -DSQLITE_OMIT_DESERIALIZE
+CFLAGS += -DSQLITE_OMIT_EXPLAIN
+CFLAGS += -DSQLITE_OMIT_JSON
+
 ifneq (@(TUP_USE_SYSTEM_SQLITE),y)
 : foreach *.c |> !cc |>
 endif

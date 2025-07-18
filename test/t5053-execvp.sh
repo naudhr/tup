@@ -1,7 +1,7 @@
 #! /bin/sh -e
 # tup - A file-based build system
 #
-# Copyright (C) 2009-2021  Mike Shal <marfey@gmail.com>
+# Copyright (C) 2009-2024  Mike Shal <marfey@gmail.com>
 #
 # This program is free software; you can redistribute it and/or modify
 # it under the terms of the GNU General Public License version 2 as
@@ -29,17 +29,13 @@ cat > Tupfile << HERE
 : foreach exec_test.c prog.c |> gcc %f -o %o |> %B.exe
 : exec_test.exe prog.exe |> ./exec_test.exe && touch %o |> test_passed
 HERE
-const=""
-if [ "$in_windows" = "1" ]; then
-	const="const"
-fi
 cat > exec_test.c << HERE
 #include <stdio.h>
 #include <unistd.h>
 
 int main(void)
 {
-	$const char * const args[] = {"prog.exe", NULL};
+	char * const args[] = {"prog.exe", NULL};
 	execvp("./prog.exe", args);
 	return 1;
 }
@@ -47,7 +43,6 @@ HERE
 cat > prog.c << HERE
 int main(void) {return 0;}
 HERE
-tup touch Tupfile exec_test.c prog.c
 update
 
 check_updates prog.c test_passed

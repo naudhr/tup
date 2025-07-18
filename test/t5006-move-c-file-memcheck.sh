@@ -1,7 +1,7 @@
 #! /bin/sh -e
 # tup - A file-based build system
 #
-# Copyright (C) 2008-2021  Mike Shal <marfey@gmail.com>
+# Copyright (C) 2008-2024  Mike Shal <marfey@gmail.com>
 #
 # This program is free software; you can redistribute it and/or modify
 # it under the terms of the GNU General Public License version 2 as
@@ -31,7 +31,6 @@ HERE
 # Verify both files are compiled
 echo "int foo(void) {return 0;}" > foo.c
 echo "void bar1(void) {}" > bar.c
-tup touch foo.c bar.c
 update
 sym_check foo.o foo
 sym_check bar.o bar1
@@ -39,8 +38,6 @@ sym_check libfoo.a foo bar1
 
 # Rename bar.c to realbar.c.
 mv bar.c realbar.c
-tup rm bar.c
-tup touch realbar.c
 MALLOC_TRACE=mout tup upd
 
 # Still seem to be some leaks in sqlite, even though I'm finalizing the

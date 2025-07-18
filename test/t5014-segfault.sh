@@ -1,7 +1,7 @@
 #! /bin/sh -e
 # tup - A file-based build system
 #
-# Copyright (C) 2009-2021  Mike Shal <marfey@gmail.com>
+# Copyright (C) 2009-2024  Mike Shal <marfey@gmail.com>
 #
 # This program is free software; you can redistribute it and/or modify
 # it under the terms of the GNU General Public License version 2 as
@@ -34,7 +34,6 @@ int main(void)
 	return 0;
 }
 HERE
-tup touch segfault.c Tupfile
 update_fail_msg "Segmentation fault"
 tup_dep_exist . segfault.c . 'gcc segfault.c -o tup_t5014_segfault'
 tup_dep_exist . 'gcc segfault.c -o tup_t5014_segfault' . tup_t5014_segfault

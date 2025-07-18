@@ -1,7 +1,7 @@
 #! /bin/sh -e
 # tup - A file-based build system
 #
-# Copyright (C) 2013-2021  Mike Shal <marfey@gmail.com>
+# Copyright (C) 2013-2024  Mike Shal <marfey@gmail.com>
 #
 # This program is free software; you can redistribute it and/or modify
 # it under the terms of the GNU General Public License version 2 as
@@ -26,9 +26,9 @@ cat > Tupfile << HERE
 HERE
 echo '#include "sub/foo.h"' > ok.c
 
-tmkdir bar
-tmkdir bar/sub
-tup touch bar/sub/foo.h
+mkdir bar
+mkdir bar/sub
+touch bar/sub/foo.h
 update
 
 tup_dep_exist bar/sub foo.h . 'gcc -c ok.c -o ok.o -Ifoo -Ibar'
@@ -36,7 +36,6 @@ tup_dep_exist bar/sub foo.h . 'gcc -c ok.c -o ok.o -Ifoo -Ibar'
 cat > bar/Tupfile << HERE
 : |> touch %o |> ../foo/sub/foo.h | ../<headers>
 HERE
-tup touch bar/Tupfile
 update
 
 tup_dep_exist foo/sub foo.h . 'gcc -c ok.c -o ok.o -Ifoo -Ibar'

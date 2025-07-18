@@ -1,7 +1,7 @@
 #! /bin/sh -e
 # tup - A file-based build system
 #
-# Copyright (C) 2012-2021  Mike Shal <marfey@gmail.com>
+# Copyright (C) 2012-2024  Mike Shal <marfey@gmail.com>
 #
 # This program is free software; you can redistribute it and/or modify
 # it under the terms of the GNU General Public License version 2 as
@@ -19,7 +19,7 @@
 # Make sure an in-tree build doesn't duplicate files.
 . ./tup.sh
 
-tmkdir sub
+mkdir sub
 cat > sub/ok.c << HERE
 #include <stdio.h>
 #include <dirent.h>
@@ -42,10 +42,10 @@ cat > sub/Tupfile << HERE
 : ok.c |> gcc %f -o %o |> ok.exe
 : ok.exe |> ./ok.exe > %o |> files.txt
 HERE
-tup touch sub/foo.c sub/bar.c sub/Tupfile
+touch sub/foo.c sub/bar.c
 update
 
-if ! grep foo.c sub/files.txt | wc -l | grep 1 > /dev/null; then
+if [ "$(grep -c 'foo\.c' sub/files.txt)" != 1 ]; then
 	echo "Error: files.txt should only contain one foo.c" 1>&2
 	cat sub/files.txt
 	exit 1

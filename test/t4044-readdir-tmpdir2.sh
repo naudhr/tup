@@ -1,7 +1,7 @@
 #! /bin/sh -e
 # tup - A file-based build system
 #
-# Copyright (C) 2011-2021  Mike Shal <marfey@gmail.com>
+# Copyright (C) 2011-2024  Mike Shal <marfey@gmail.com>
 #
 # This program is free software; you can redistribute it and/or modify
 # it under the terms of the GNU General Public License version 2 as
@@ -20,7 +20,7 @@
 
 . ./tup.sh
 
-tmkdir sub
+mkdir sub
 cd sub
 cat > ok.sh << HERE
 mkdir tmpsub
@@ -44,8 +44,8 @@ cd ..
 update
 
 for i in foo.txt bar.txt; do
-	if ! grep "$1" sub/output.dat > /dev/null; then
-		echo "Error: '$1' should be in the output file" 1>&2
+	if ! grep "$i" sub/output.dat > /dev/null; then
+		echo "Error: '$i' should be in the output file" 1>&2
 		exit 1
 	fi
 done
@@ -54,7 +54,7 @@ if grep tmpsub/level2/baz.txt sub/output.dat > /dev/null; then
 	exit 1
 fi
 
-cat > ok.sh << HERE
+cat > sub/ok.sh << HERE
 mkdir tmpsub
 mkdir tmpsub/level2
 echo sup > tmpsub/level2/baz.txt
@@ -67,12 +67,12 @@ rm tmpsub/level2/baz.txt
 rmdir tmpsub/level2
 rmdir tmpsub
 HERE
-tup touch ok.sh
 update
 
 for i in foo.txt bar.txt tmpsub/level2/baz.txt; do
-	if ! grep "$1" sub/output.dat > /dev/null; then
-		echo "Error: '$1' should be in the output file" 1>&2
+	if ! grep "$i" sub/output.dat > /dev/null; then
+		echo "Error: '$i' should be in the output file but isn't:" 1>&2
+		cat sub/output.dat
 		exit 1
 	fi
 done

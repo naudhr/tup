@@ -1,7 +1,7 @@
 #! /bin/sh -e
 # tup - A file-based build system
 #
-# Copyright (C) 2013-2021  Mike Shal <marfey@gmail.com>
+# Copyright (C) 2013-2024  Mike Shal <marfey@gmail.com>
 #
 # This program is free software; you can redistribute it and/or modify
 # it under the terms of the GNU General Public License version 2 as
@@ -34,7 +34,6 @@ fi
 cat > Tupfile << HERE
 : |> echo text > %o |> OUTput.txt
 HERE
-tup touch Tupfile
 update
 
 if ls | grep 'output.txt' > /dev/null; then

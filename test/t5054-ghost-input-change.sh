@@ -1,7 +1,7 @@
 #! /bin/sh -e
 # tup - A file-based build system
 #
-# Copyright (C) 2009-2021  Mike Shal <marfey@gmail.com>
+# Copyright (C) 2009-2024  Mike Shal <marfey@gmail.com>
 #
 # This program is free software; you can redistribute it and/or modify
 # it under the terms of the GNU General Public License version 2 as
@@ -28,7 +28,6 @@ cat > ok.sh << HERE
 if [ -f ghost ]; then cat ghost; else echo nofile; fi
 HERE
 echo 'heyo' > foo.txt
-tup touch foo.txt Tupfile ok.sh
 update
 
 tup_dep_exist . ghost . 'sh ok.sh > output'
@@ -37,7 +36,6 @@ echo 'nofile' | diff - output
 cat > ok.sh << HERE
 cat foo.txt
 HERE
-tup touch ok.sh
 update
 
 echo 'heyo' | diff - output

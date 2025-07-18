@@ -1,7 +1,7 @@
 #! /bin/sh -e
 # tup - A file-based build system
 #
-# Copyright (C) 2010-2021  Mike Shal <marfey@gmail.com>
+# Copyright (C) 2010-2024  Mike Shal <marfey@gmail.com>
 #
 # This program is free software; you can redistribute it and/or modify
 # it under the terms of the GNU General Public License version 2 as
@@ -24,7 +24,6 @@ cat > Tupfile << HERE
 : |> echo blah > %o; touch bar |> foo.h | bar
 HERE
 
-tup touch Tupfile
 parse
 tup_dep_exist . "echo blah > foo.h; touch bar" . foo.h
 tup_dep_exist . "echo blah > foo.h; touch bar" . bar
@@ -33,7 +32,6 @@ update
 cat > Tupfile << HERE
 : |> echo blah > %o; touch bar |> foo.h
 HERE
-tup touch Tupfile
 parse
 
 tup_dep_exist . "echo blah > foo.h; touch bar" . foo.h
@@ -43,7 +41,6 @@ update_fail_msg "File '.*bar' was written to"
 cat > Tupfile << HERE
 : |> echo blah > %o; touch bar |> foo.h | bar
 HERE
-tup touch Tupfile
 update
 
 tup_dep_exist . "echo blah > foo.h; touch bar" . foo.h

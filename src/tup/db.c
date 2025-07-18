@@ -2,7 +2,7 @@
  *
  * tup - A file-based build system
  *
- * Copyright (C) 2008-2021  Mike Shal <marfey@gmail.com>
+ * Copyright (C) 2008-2024  Mike Shal <marfey@gmail.com>
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 as
@@ -49,8 +49,8 @@
 #include <sys/stat.h>
 #include "sqlite3/sqlite3.h"
 
-#define DB_VERSION 18
-#define PARSER_VERSION 14
+#define DB_VERSION 19
+#define PARSER_VERSION 16
 
 enum {
 	DB_BEGIN,
@@ -119,6 +119,7 @@ enum {
 	DB_FILES_TO_TREE,
 	_DB_GET_LINKS1,
 	_DB_GET_LINKS2,
+	_DB_GET_STICKY_OUTPUTS,
 	DB_NODE_INSERT,
 	_DB_NODE_SELECT,
 	_DB_LINK_INSERT1,
@@ -148,13 +149,16 @@ struct half_entry {
 };
 LIST_HEAD(half_entry_head, half_entry);
 
+struct timespec INVALID_MTIME = {-1, 0};
+struct timespec EXTERNAL_DIRECTORY_MTIME = {0, 0};
+
 static sqlite3 *tup_db = NULL;
 static sqlite3_stmt *stmts[DB_NUM_STATEMENTS];
 static struct tent_entries ghost_root = TENT_ENTRIES_INITIALIZER;
 static int tup_db_var_changed = 0;
 static int sql_debug = 0;
 static int reclaim_ghost_debug = 0;
-static struct vardb envdb = { {NULL}, 0, NULL, NULL};
+static struct vardb envdb = { {NULL}, 0};
 static int transaction = 0;
 static tupid_t local_env_dt = -1;
 static tupid_t local_exclusion_dt = -1;
@@ -172,7 +176,7 @@ static int version_check(void);
 static int init_virtual_dirs(void);
 static struct tup_entry *node_insert(struct tup_entry *dtent, const char *name, int namelen,
 				     const char *display, int displaylen, const char *flags, int flagslen,
-				     enum TUP_NODE_TYPE type, time_t mtime, tupid_t srcid);
+				     enum TUP_NODE_TYPE type, struct timespec mtime, tupid_t srcid);
 static int node_select(struct tup_entry *dtent, const char *name, int len,
 		       struct tup_entry **entry);
 
@@ -180,6 +184,7 @@ static int link_insert(tupid_t a, tupid_t b, int style);
 static int link_remove(tupid_t a, tupid_t b, int style);
 static int group_link_insert(tupid_t a, tupid_t b, tupid_t cmdid);
 static int group_link_remove(tupid_t a, tupid_t b, tupid_t cmdid);
+static int get_sticky_outputs(tupid_t tupid, struct tent_entries *root);
 static int delete_group_links(tupid_t cmdid);
 static int get_normal_inputs(tupid_t cmdid, struct tent_entries *root, int ghost_check);
 static int node_has_ghosts(tupid_t tupid);
@@ -305,7 +310,7 @@ int tup_db_create(int db_sync, int memory_db)
 	int x;
 	const char *dbname;
 	const char *sql[] = {
-		"create table node (id integer primary key not null, dir integer not null, type integer not null, mtime integer not null, srcid integer not null, name varchar(4096), display varchar(4096), flags varchar(256), unique(dir, name))",
+		"create table node (id integer primary key not null, dir integer not null, type integer not null, mtime integer not null, mtime_ns integer not null, srcid integer not null, name varchar(4096), display varchar(4096), flags varchar(256), unique(dir, name))",
 		"create table normal_link (from_id integer, to_id integer, unique(from_id, to_id))",
 		"create table sticky_link (from_id integer, to_id integer, unique(from_id, to_id))",
 		"create table group_link (from_id integer, to_id integer, cmdid integer, unique(from_id, to_id, cmdid))",
@@ -321,7 +326,7 @@ int tup_db_create(int db_sync, int memory_db)
 		"create index group_index2 on group_link(cmdid)",
 		"create index srcid_index on node(srcid)",
 		"insert into config values('db_version', 0)",
-		"insert into node values(1, 0, 2, -1, -1, '.', NULL, NULL)",
+		"insert into node values(1, 0, 2, -1, 0, -1, '.', NULL, NULL)",
 	};
 
 	if(memory_db) {
@@ -648,6 +653,13 @@ static int version_check(void)
 			"Added a transient list for outputs that are deleted after they are no longer used.",
 			{
 				"create table transient_list (id integer primary key not null)",
+			}
+		},
+		{
+			/* Upgrade to version 19 */
+			"Added an mtime_ns column for nanosecond timestamp resolution.",
+			{
+				"alter table node add column mtime_ns integer default 0",
 			}
 		},
 	};
@@ -1023,14 +1035,17 @@ struct tup_entry *tup_db_create_node_part_display(struct tup_entry *dtent, const
 				if(tup_db_delete_links(tent->tnode.tupid) < 0)
 					return NULL;
 			}
-			if(tup_db_add_modify_list(tent->tnode.tupid) < 0)
-				return NULL;
-			if(tup_db_set_type(tent, type) < 0)
-				return NULL;
-			if(tup_db_set_srcid(tent, srcid) < 0)
-				return NULL;
-			if(node_changed)
-				*node_changed = 1;
+
+			if(type != TUP_NODE_GHOST) {
+				if(tup_db_add_modify_list(tent->tnode.tupid) < 0)
+					return NULL;
+				if(tup_db_set_type(tent, type) < 0)
+					return NULL;
+				if(tup_db_set_srcid(tent, srcid) < 0)
+					return NULL;
+				if(node_changed)
+					*node_changed = 1;
+			}
 
 			{
 				struct variant *variant;
@@ -1117,7 +1132,7 @@ struct tup_entry *tup_db_create_node_part_display(struct tup_entry *dtent, const
 		return tent;
 	}
 
-	tent = node_insert(dtent, name, namelen, display, displaylen, flags, flagslen, type, -1, srcid);
+	tent = node_insert(dtent, name, namelen, display, displaylen, flags, flagslen, type, INVALID_MTIME, srcid);
 	if(node_changed)
 		*node_changed = 1;
 	return tent;
@@ -1128,10 +1143,10 @@ int tup_db_fill_tup_entry(tupid_t tupid, struct tup_entry **dest)
 	int rc = -1;
 	int dbrc;
 	sqlite3_stmt **stmt = &stmts[DB_FILL_TUP_ENTRY];
-	static char s[] = "select dir, type, mtime, srcid, name, display, flags from node where id=?";
+	static char s[] = "select dir, type, mtime, mtime_ns, srcid, name, display, flags from node where id=?";
 	tupid_t dt;
 	enum TUP_NODE_TYPE type;
-	time_t mtime;
+	struct timespec mtime;
 	tupid_t srcid;
 	const char *name;
 	const char *display;
@@ -1141,7 +1156,7 @@ int tup_db_fill_tup_entry(tupid_t tupid, struct tup_entry **dest)
 		/* Create a dummy tup_entry for DOT_DT's parent, so we can
 		 * tup_entry_add(tupid == 0) and get a valid pointer.
 		 */
-		if(tup_entry_add_all(0, 0, TUP_NODE_ROOT, -1, -1, "{root}", "{root}", "", dest) < 0) {
+		if(tup_entry_add_all(0, 0, TUP_NODE_ROOT, INVALID_MTIME, -1, "{root}", "{root}", "", dest) < 0) {
 			return -1;
 		}
 		return 0;
@@ -1175,11 +1190,12 @@ int tup_db_fill_tup_entry(tupid_t tupid, struct tup_entry **dest)
 
 	dt = sqlite3_column_int64(*stmt, 0);
 	type = sqlite3_column_int(*stmt, 1);
-	mtime = sqlite3_column_int(*stmt, 2);
-	srcid = sqlite3_column_int64(*stmt, 3);
-	name = (const char*)sqlite3_column_text(*stmt, 4);
-	display = (const char*)sqlite3_column_text(*stmt, 5);
-	flags = (const char*)sqlite3_column_text(*stmt, 6);
+	mtime.tv_sec = sqlite3_column_int(*stmt, 2);
+	mtime.tv_nsec = sqlite3_column_int(*stmt, 3);
+	srcid = sqlite3_column_int64(*stmt, 4);
+	name = (const char*)sqlite3_column_text(*stmt, 5);
+	display = (const char*)sqlite3_column_text(*stmt, 6);
+	flags = (const char*)sqlite3_column_text(*stmt, 7);
 
 	if(tup_entry_add_all(tupid, dt, type, mtime, srcid, name, display, flags, dest) < 0)
 		goto out_reset;
@@ -1377,7 +1393,7 @@ int tup_db_select_node_dir_glob(int (*callback)(void *, struct tup_entry *),
 	int rc;
 	int dbrc;
 	sqlite3_stmt **stmt = &stmts[DB_SELECT_NODE_DIR_GLOB];
-	static char s[] = "select id, name, type, mtime, srcid, display, flags from node where dir=? and (type=? or type=? or type=?) and name glob ?" SQL_NAME_COLLATION;
+	static char s[] = "select id, name, type, mtime, mtime_ns, srcid, display, flags from node where dir=? and (type=? or type=? or type=?) and name glob ?" SQL_NAME_COLLATION;
 	int extra_type;
 
 	if(include_directories) {
@@ -1431,7 +1447,7 @@ int tup_db_select_node_dir_glob(int (*callback)(void *, struct tup_entry *),
 		const char *display;
 		const char *flags;
 		enum TUP_NODE_TYPE type;
-		time_t mtime;
+		struct timespec mtime;
 		tupid_t srcid;
 
 		dbrc = sqlite3_step(*stmt);
@@ -1452,10 +1468,11 @@ int tup_db_select_node_dir_glob(int (*callback)(void *, struct tup_entry *),
 			if(!tent) {
 				name = (const char *)sqlite3_column_text(*stmt, 1);
 				type = sqlite3_column_int(*stmt, 2);
-				mtime = sqlite3_column_int64(*stmt, 3);
-				srcid = sqlite3_column_int64(*stmt, 4);
-				display = (const char *)sqlite3_column_text(*stmt, 5);
-				flags = (const char *)sqlite3_column_text(*stmt, 6);
+				mtime.tv_sec = sqlite3_column_int64(*stmt, 3);
+				mtime.tv_nsec = sqlite3_column_int64(*stmt, 4);
+				srcid = sqlite3_column_int64(*stmt, 5);
+				display = (const char *)sqlite3_column_text(*stmt, 6);
+				flags = (const char *)sqlite3_column_text(*stmt, 7);
 
 				if(tup_entry_add_to_dir(dtent, tupid, name, -1, display, -1, flags, -1, type, mtime, srcid, &tent) < 0) {
 					rc = -1;
@@ -2209,18 +2226,18 @@ int tup_db_set_type(struct tup_entry *tent, enum TUP_NODE_TYPE type)
 	return 0;
 }
 
-int tup_db_set_mtime(struct tup_entry *tent, time_t mtime)
+int tup_db_set_mtime(struct tup_entry *tent, struct timespec mtime)
 {
 	int rc;
 	sqlite3_stmt **stmt = &stmts[DB_SET_MTIME];
-	static char s[] = "update node set mtime=? where id=?";
+	static char s[] = "update node set mtime=?, mtime_ns=? where id=?";
 
 	if(!tent) {
 		fprintf(stderr, "tup internal error: tent is NULL in tup_db_set_mtime()\n");
 		return -1;
 	}
 
-	transaction_check("%s [%li, %lli]", s, mtime, tent->tnode.tupid);
+	transaction_check("%s [%li, %lli, %lli]", s, mtime.tv_sec, mtime.tv_nsec, tent->tnode.tupid);
 	if(!*stmt) {
 		if(sqlite3_prepare_v2(tup_db, s, sizeof(s), stmt, NULL) != 0) {
 			fprintf(stderr, "SQL Error: %s\n", sqlite3_errmsg(tup_db));
@@ -2229,12 +2246,17 @@ int tup_db_set_mtime(struct tup_entry *tent, time_t mtime)
 		}
 	}
 
-	if(sqlite3_bind_int64(*stmt, 1, mtime) != 0) {
+	if(sqlite3_bind_int64(*stmt, 1, mtime.tv_sec) != 0) {
 		fprintf(stderr, "SQL bind error: %s\n", sqlite3_errmsg(tup_db));
 		fprintf(stderr, "Statement was: %s\n", s);
 		return -1;
 	}
-	if(sqlite3_bind_int64(*stmt, 2, tent->tnode.tupid) != 0) {
+	if(sqlite3_bind_int64(*stmt, 2, mtime.tv_nsec) != 0) {
+		fprintf(stderr, "SQL bind error: %s\n", sqlite3_errmsg(tup_db));
+		fprintf(stderr, "Statement was: %s\n", s);
+		return -1;
+	}
+	if(sqlite3_bind_int64(*stmt, 3, tent->tnode.tupid) != 0) {
 		fprintf(stderr, "SQL bind error: %s\n", sqlite3_errmsg(tup_db));
 		fprintf(stderr, "Statement was: %s\n", s);
 		return -1;
@@ -2349,7 +2371,7 @@ static int write_gitignore_line(FILE * f, const unsigned char *to_ignore)
 	return -1;
 }
 
-int tup_db_write_gitignore(FILE *f, tupid_t dt)
+int tup_db_write_gitignore(FILE *f, tupid_t dt, int skip_self)
 {
 	int rc;
 	int dbrc;
@@ -2393,10 +2415,14 @@ int tup_db_write_gitignore(FILE *f, tupid_t dt)
 			rc = -1;
 			goto out_reset;
 		}
-		if(write_gitignore_line(f, sqlite3_column_text(*stmt, 0)) < 0) {
-			fprintf(stderr, "tup error: Unable to write data to .gitignore file.\n");
-			rc = -1;
-			goto out_reset;
+
+		const char *filename = (const char *)sqlite3_column_text(*stmt, 0);
+		if(!skip_self || strcmp(filename, ".gitignore") != 0) {
+			if(write_gitignore_line(f, sqlite3_column_text(*stmt, 0)) < 0) {
+				fprintf(stderr, "tup error: Unable to write data to .gitignore file.\n");
+				rc = -1;
+				goto out_reset;
+			}
 		}
 	}
 
@@ -4419,6 +4445,24 @@ int tup_db_select_node_by_link(int (*callback)(void *, struct tup_entry *),
 	return 0;
 }
 
+int tup_db_select_node_by_sticky_link(int (*callback)(void *, struct tup_entry *),
+				      void *arg, tupid_t tupid)
+{
+	struct tent_entries root = TENT_ENTRIES_INITIALIZER;
+	struct tent_tree *tt;
+
+	if(get_sticky_outputs(tupid, &root) < 0)
+		return -1;
+
+	RB_FOREACH(tt, tent_entries, &root) {
+		if(callback(arg, tt->tent) < 0)
+			return -1;
+	}
+	free_tent_tree(&root);
+
+	return 0;
+}
+
 int tup_db_select_node_by_group_link(int (*callback)(void *, struct tup_entry *, struct tup_entry *),
 				     void *arg, tupid_t tupid)
 {
@@ -4803,7 +4847,7 @@ static struct var_entry *get_var(struct variant *variant, const char *var, int v
 		if(!tent) {
 			tent = node_insert(variant->tent, var, varlen,
 					   NULL, 0, NULL, 0,
-					   TUP_NODE_GHOST, -1, -1);
+					   TUP_NODE_GHOST, INVALID_MTIME, -1);
 			if(!tent)
 				return NULL;
 		}
@@ -4845,14 +4889,9 @@ static int save_vardict_file(struct vardb *vdb, const char *vardict_file)
 	if(tup_db_var_changed == 0)
 		return 0;
 
-	if(chdir(get_tup_top()) < 0) {
-		perror(get_tup_top());
-		fprintf(stderr, "tup error: Unable to change directory to project root.\n");
-		return -1;
-	}
-	fd = open(vardict_file, O_CREAT|O_WRONLY|O_TRUNC, 0666);
+	fd = openat(tup_top_fd(), vardict_file, O_CREAT|O_WRONLY|O_TRUNC, 0666);
 	if(fd < 0) {
-		perror("openat");
+		perror(vardict_file);
 		fprintf(stderr, "tup error: Unable to create the vardict file: '%s'\n", vardict_file);
 		return -1;
 	}
@@ -4961,8 +5000,7 @@ static int compare_vars(struct var_entry *vea, struct var_entry *veb)
 	return tup_db_set_var(vea->tent->tnode.tupid, veb->value);
 }
 
-int tup_db_read_vars(struct tup_entry *dtent, const char *file,
-		     struct tup_entry *var_dtent, const char *vardict_file)
+int tup_db_read_vars(struct tup_entry *tent, struct tup_entry *vartent, const char *vardict_file)
 {
 	struct vardb db_tree;
 	struct vardb file_tree;
@@ -4972,16 +5010,16 @@ int tup_db_read_vars(struct tup_entry *dtent, const char *file,
 
 	vardb_init(&db_tree);
 	vardb_init(&file_tree);
-	if(tup_db_get_vardb(var_dtent, &db_tree) < 0)
+	if(tup_db_get_vardb(vartent, &db_tree) < 0)
 		return -1;
-	dfd = tup_entry_openat(tup_top_fd(), dtent);
+	dfd = tup_entry_openat(tup_top_fd(), tent->parent);
 	if(dfd < 0) {
 		rc = 0;
 	} else {
-		fd = openat(dfd, file, O_RDONLY);
+		fd = openat(dfd, tent->name.s, O_RDONLY);
 		if(fd < 0) {
 			if(errno != ENOENT) {
-				perror(file);
+				perror(tent->name.s);
 				return -1;
 			}
 			/* No tup.config == empty file_tree */
@@ -5002,7 +5040,7 @@ int tup_db_read_vars(struct tup_entry *dtent, const char *file,
 		return -1;
 
 	if(vardb_compare(&db_tree, &file_tree, remove_var, add_var,
-			 compare_vars, var_dtent) < 0)
+			 compare_vars, vartent) < 0)
 		return -1;
 
 	if(vardict_file)
@@ -5018,7 +5056,6 @@ int tup_db_read_vars(struct tup_entry *dtent, const char *file,
 int tup_db_delete_tup_config(struct tup_entry *tent)
 {
 	struct half_entry_head subdir_list;
-	char vardict_file[PATH_MAX];
 
 	LIST_INIT(&subdir_list);
 	if(get_dir_entries(tent->tnode.tupid, &subdir_list) < 0)
@@ -5030,18 +5067,6 @@ int tup_db_delete_tup_config(struct tup_entry *tent)
 			return -1;
 		LIST_REMOVE(he, list);
 		free(he);
-	}
-	if(tent->dt == DOT_DT) {
-		snprintf(vardict_file, sizeof(vardict_file), ".tup/vardict");
-	} else {
-		snprintf(vardict_file, sizeof(vardict_file), ".tup/vardict-%s", tent->parent->name.s);
-	}
-	if(unlink(vardict_file) < 0) {
-		if(errno != ENOENT) {
-			perror(vardict_file);
-			fprintf(stderr, "tup error: Unable to remove old vardict file from .tup directory.\n");
-			return -1;
-		}
 	}
 	return 0;
 }
@@ -5160,10 +5185,13 @@ int tup_db_check_env(int environ_check)
 	return 0;
 }
 
-int tup_db_findenv(const char *var, struct tup_entry **tent)
+int tup_db_findenv(const char *var, int varlen, struct var_entry **ret)
 {
 	struct var_entry *ve;
-	int varlen = strlen(var);
+
+	if(varlen < 0) {
+		varlen = strlen(var);
+	}
 
 	ve = vardb_get(&envdb, var, varlen);
 	if(!ve) {
@@ -5171,10 +5199,16 @@ int tup_db_findenv(const char *var, struct tup_entry **tent)
 		const char *newenv;
 		int newenvlen = 0;
 
-		newtent = node_insert(env_dtent(), var, varlen, NULL, 0, NULL, 0, TUP_NODE_VAR, -1, -1);
+		newtent = node_insert(env_dtent(), var, varlen, NULL, 0, NULL, 0, TUP_NODE_VAR, INVALID_MTIME, -1);
 		if(!newtent)
 			return -1;
-		newenv = getenv(var);
+		char *varname = malloc(varlen + 1);
+		if(varname == NULL)
+			return -1;
+		strncpy(varname, var, varlen);
+		varname[varlen] = 0;
+		newenv = getenv(varname);
+		free(varname);
 		if(newenv)
 			newenvlen = strlen(newenv);
 		ve = envdb_set(var, varlen, newenv, newenvlen, newtent, 1);
@@ -5182,7 +5216,7 @@ int tup_db_findenv(const char *var, struct tup_entry **tent)
 			return -1;
 		expected_changes++;
 	}
-	*tent = ve->tent;
+	*ret = ve;
 	return 0;
 }
 
@@ -5348,7 +5382,7 @@ static int load_existing_nodes(void)
 	int rc = -1;
 	int dbrc;
 	sqlite3_stmt **stmt = &stmts[DB_FILES_TO_TREE];
-	static char s[] = "select id, dir, type, mtime, srcid, name, display, flags from node where type=? or type=? or type=? or type=?";
+	static char s[] = "select id, dir, type, mtime, mtime_ns, srcid, name, display, flags from node where type=? or type=? or type=? or type=?";
 
 	transaction_check("%s [%i, %i, %i]", s, TUP_NODE_FILE, TUP_NODE_DIR, TUP_NODE_GENERATED, TUP_NODE_GENERATED_DIR);
 	if(!*stmt) {
@@ -5389,7 +5423,7 @@ static int load_existing_nodes(void)
 		tupid_t tupid;
 		tupid_t dt;
 		enum TUP_NODE_TYPE type;
-		time_t mtime;
+		struct timespec mtime;
 		const char *name;
 		const char *display;
 		const char *flags;
@@ -5409,11 +5443,12 @@ static int load_existing_nodes(void)
 		tupid = sqlite3_column_int64(*stmt, 0);
 		dt = sqlite3_column_int64(*stmt, 1);
 		type = sqlite3_column_int(*stmt, 2);
-		mtime = sqlite3_column_int64(*stmt, 3);
-		srcid = sqlite3_column_int64(*stmt, 4);
-		name = (const char*)sqlite3_column_text(*stmt, 5);
-		display = (const char*)sqlite3_column_text(*stmt, 6);
-		flags = (const char*)sqlite3_column_text(*stmt, 7);
+		mtime.tv_sec = sqlite3_column_int64(*stmt, 3);
+		mtime.tv_nsec = sqlite3_column_int64(*stmt, 4);
+		srcid = sqlite3_column_int64(*stmt, 5);
+		name = (const char*)sqlite3_column_text(*stmt, 6);
+		display = (const char*)sqlite3_column_text(*stmt, 7);
+		flags = (const char*)sqlite3_column_text(*stmt, 8);
 
 		if(tup_entry_add_all(tupid, dt, type, mtime, srcid, name, display, flags, NULL) < 0)
 			break;
@@ -5602,9 +5637,72 @@ static int get_sticky_inputs(tupid_t cmdid, struct tent_entries *root,
 			struct tup_entry *tent;
 			if(tup_entry_add(tl->tupid, &tent) < 0)
 				return -1;
-			if(tent->type == TUP_NODE_GROUP)
+			if(group_root && tent->type == TUP_NODE_GROUP)
 				if(tent_tree_add_dup(group_root, tent) < 0)
 					return -1;
+			if(tent_tree_add_dup(root, tent) < 0)
+				return -1;
+		}
+	}
+	free_tupid_list(&tupid_list);
+	return rc;
+}
+
+static int get_sticky_outputs(tupid_t tupid, struct tent_entries *root)
+{
+	int rc = 0;
+	int dbrc;
+	sqlite3_stmt **stmt = &stmts[_DB_GET_STICKY_OUTPUTS];
+	static char s[] = "select to_id from sticky_link where from_id=?";
+	struct tupid_list *tl;
+	struct tupid_list_head tupid_list;
+
+	tupid_list_init(&tupid_list);
+
+	transaction_check("%s [%lli]", s, tupid);
+	if(!*stmt) {
+		if(sqlite3_prepare_v2(tup_db, s, sizeof(s), stmt, NULL) != 0) {
+			fprintf(stderr, "SQL Error: %s\n", sqlite3_errmsg(tup_db));
+			fprintf(stderr, "Statement was: %s\n", s);
+			return -1;
+		}
+	}
+
+	if(sqlite3_bind_int64(*stmt, 1, tupid) != 0) {
+		fprintf(stderr, "SQL bind error: %s\n", sqlite3_errmsg(tup_db));
+		fprintf(stderr, "Statement was: %s\n", s);
+		return -1;
+	}
+
+	while(1) {
+		dbrc = sqlite3_step(*stmt);
+		if(dbrc == SQLITE_DONE) {
+			break;
+		}
+		if(dbrc != SQLITE_ROW) {
+			fprintf(stderr, "SQL step error: %s\n", sqlite3_errmsg(tup_db));
+			fprintf(stderr, "Statement was: %s\n", s);
+			rc = -1;
+			break;
+		}
+
+		if(tupid_list_add_tail(&tupid_list, sqlite3_column_int64(*stmt, 0)) < 0) {
+			rc = -1;
+			break;
+		}
+	}
+
+	if(msqlite3_reset(*stmt) != 0) {
+		fprintf(stderr, "SQL reset error: %s\n", sqlite3_errmsg(tup_db));
+		fprintf(stderr, "Statement was: %s\n", s);
+		return -1;
+	}
+
+	if(rc == 0) {
+		tupid_list_foreach(tl, &tupid_list) {
+			struct tup_entry *tent;
+			if(tup_entry_add(tl->tupid, &tent) < 0)
+				return -1;
 			if(tent_tree_add_dup(root, tent) < 0)
 				return -1;
 		}
@@ -6401,7 +6499,7 @@ int tup_db_write_dir_inputs(FILE *f, tupid_t dt, struct tent_entries *root)
 
 static struct tup_entry *node_insert(struct tup_entry *dtent, const char *name, int namelen,
 				     const char *display, int displaylen, const char *flags, int flagslen,
-				     enum TUP_NODE_TYPE type, time_t mtime, tupid_t srcid)
+				     enum TUP_NODE_TYPE type, struct timespec mtime, tupid_t srcid)
 {
 	struct tup_entry *tent;
 	if(tup_db_node_insert_tent_display(dtent, name, namelen, display, displaylen, flags, flagslen, type, mtime, srcid, &tent) < 0)
@@ -6414,21 +6512,21 @@ static struct tup_entry *node_insert(struct tup_entry *dtent, const char *name, 
 }
 
 int tup_db_node_insert_tent(struct tup_entry *dtent, const char *name, int namelen,
-			    enum TUP_NODE_TYPE type, time_t mtime, tupid_t srcid, struct tup_entry **entry)
+			    enum TUP_NODE_TYPE type, struct timespec mtime, tupid_t srcid, struct tup_entry **entry)
 {
 	return tup_db_node_insert_tent_display(dtent, name, namelen, NULL, 0, NULL, 0, type, mtime, srcid, entry);
 }
 
 int tup_db_node_insert_tent_display(struct tup_entry *dtent, const char *name, int namelen,
 				    const char *display, int displaylen, const char *flags, int flagslen,
-				    enum TUP_NODE_TYPE type, time_t mtime, tupid_t srcid, struct tup_entry **entry)
+				    enum TUP_NODE_TYPE type, struct timespec mtime, tupid_t srcid, struct tup_entry **entry)
 {
 	int rc;
 	sqlite3_stmt **stmt = &stmts[DB_NODE_INSERT];
-	static char s[] = "insert into node(dir, type, name, display, flags, mtime, srcid) values(?, ?, ?, ?, ?, ?, ?)";
+	static char s[] = "insert into node(dir, type, name, display, flags, mtime, mtime_ns, srcid) values(?, ?, ?, ?, ?, ?, ?, ?)";
 	tupid_t tupid;
 
-	transaction_check("%s [%lli, %i, '%.*s', '%.*s', '%.*s', %li, %lli]", s, dtent->tnode.tupid, type, namelen, name, displaylen, display, flagslen, flags, mtime, srcid);
+	transaction_check("%s [%lli, %i, '%.*s', '%.*s', '%.*s', %li, %li, %lli]", s, dtent->tnode.tupid, type, namelen, name, displaylen, display, flagslen, flags, mtime.tv_sec, mtime.tv_nsec, srcid);
 	if(!*stmt) {
 		if(sqlite3_prepare_v2(tup_db, s, sizeof(s), stmt, NULL) != 0) {
 			fprintf(stderr, "SQL Error: %s\n", sqlite3_errmsg(tup_db));
@@ -6462,12 +6560,17 @@ int tup_db_node_insert_tent_display(struct tup_entry *dtent, const char *name, i
 		fprintf(stderr, "Statement was: %s\n", s);
 		return -1;
 	}
-	if(sqlite3_bind_int64(*stmt, 6, mtime) != 0) {
+	if(sqlite3_bind_int64(*stmt, 6, mtime.tv_sec) != 0) {
 		fprintf(stderr, "SQL bind error: %s\n", sqlite3_errmsg(tup_db));
 		fprintf(stderr, "Statement was: %s\n", s);
 		return -1;
 	}
-	if(sqlite3_bind_int64(*stmt, 7, srcid) != 0) {
+	if(sqlite3_bind_int64(*stmt, 7, mtime.tv_nsec) != 0) {
+		fprintf(stderr, "SQL bind error: %s\n", sqlite3_errmsg(tup_db));
+		fprintf(stderr, "Statement was: %s\n", s);
+		return -1;
+	}
+	if(sqlite3_bind_int64(*stmt, 8, srcid) != 0) {
 		fprintf(stderr, "SQL bind error: %s\n", sqlite3_errmsg(tup_db));
 		fprintf(stderr, "Statement was: %s\n", s);
 		return -1;
@@ -6516,11 +6619,11 @@ static int node_select(struct tup_entry *dtent, const char *name, int len,
 	sqlite3_stmt **stmt = &stmts[_DB_NODE_SELECT];
 	tupid_t tupid;
 	enum TUP_NODE_TYPE type;
-	int mtime;
+	struct timespec mtime;
 	tupid_t srcid;
 	const char *display;
 	const char *flags;
-	static char s[] = "select id, type, mtime, srcid, display, flags from node where dir=? and name=?" SQL_NAME_COLLATION;
+	static char s[] = "select id, type, mtime, mtime_ns, srcid, display, flags from node where dir=? and name=?" SQL_NAME_COLLATION;
 
 	*entry = NULL;
 
@@ -6564,10 +6667,11 @@ static int node_select(struct tup_entry *dtent, const char *name, int len,
 	rc = 0;
 	tupid = sqlite3_column_int64(*stmt, 0);
 	type = sqlite3_column_int(*stmt, 1);
-	mtime = sqlite3_column_int(*stmt, 2);
-	srcid = sqlite3_column_int64(*stmt, 3);
-	display = (const char*)sqlite3_column_text(*stmt, 4);
-	flags = (const char*)sqlite3_column_text(*stmt, 5);
+	mtime.tv_sec = sqlite3_column_int(*stmt, 2);
+	mtime.tv_nsec = sqlite3_column_int(*stmt, 3);
+	srcid = sqlite3_column_int64(*stmt, 4);
+	display = (const char*)sqlite3_column_text(*stmt, 5);
+	flags = (const char*)sqlite3_column_text(*stmt, 6);
 
 	if(tup_entry_add_to_dir(dtent, tupid, name, len, display, -1, flags, -1, type, mtime, srcid, entry) < 0) {
 		rc = -1;
@@ -7365,6 +7469,139 @@ int tup_db_reparse_all(void)
 	return 0;
 }
 
+static void print_json(FILE *f, const char *str, int len)
+{
+	/* Escape \ and " for json strings */
+	char *buf = malloc(len * 2);
+	const char *s = str;
+	int x;
+	int offs = 0;
+
+	for(x=0; x<len; x++) {
+		if(s[x] == '\\' || s[x] == '"') {
+			buf[offs] = '\\';
+			offs++;
+		}
+		buf[offs] = s[x];
+		offs++;
+	}
+	buf[offs] = 0;
+	fprintf(f, "%s", buf);
+	free(buf);
+}
+
+static int print_compile_db(FILE *f, struct tup_entry *cmdtent, struct tup_entry *filetent)
+{
+	static int first_time = 1;
+	struct tup_entry *srctent = variant_tent_to_srctent(cmdtent->parent);
+	struct estring e;
+
+	if(first_time) {
+		first_time = 0;
+	} else {
+		fprintf(f, ",\n");
+	}
+	fprintf(f, "{\n");
+	fprintf(f, "    \"directory\": \"");
+	estring_init(&e);
+	estring_append(&e, get_tup_top(), get_tup_top_len());
+	char sep[1] = {path_sep()};
+	estring_append(&e, sep, 1);
+	if(srctent->tnode.tupid != DOT_DT) {
+		if(get_relative_dir_sep(NULL, &e, DOT_DT, srctent->tnode.tupid, path_sep()) < 0)
+			return -1;
+	}
+	print_json(f, e.s, e.len);
+	free(e.s);
+	fprintf(f, "\",\n");
+	fprintf(f, "    \"command\": \"");
+	print_json(f, cmdtent->name.s, cmdtent->name.len);
+	fprintf(f, "\",\n");
+	fprintf(f, "    \"file\": \"");
+	if(get_relative_dir(f, NULL, srctent->tnode.tupid, filetent->tnode.tupid) < 0)
+		return -1;
+	fprintf(f, "\"\n");
+	fprintf(f, "}");
+	/* Return 1 to indicate we successfully printed an entry */
+	return 1;
+}
+
+int tup_db_create_compile_db(FILE *f, struct variant *variant)
+{
+	struct tent_entries root = TENT_ENTRIES_INITIALIZER;
+	struct tent_tree *tt;
+	int empty = 1;
+
+	if(tup_db_begin() < 0)
+		return -1;
+	if(tup_db_type_to_tree(&root, TUP_NODE_CMD) < 0)
+		return -1;
+
+	fprintf(f, "[\n");
+	RB_FOREACH(tt, tent_entries, &root) {
+		if(!is_compiledb_tent(tt->tent))
+			continue;
+		if(tup_entry_variant(tt->tent) != variant)
+			continue;
+
+		struct tup_entry *cmdtent = tt->tent;
+		struct tent_entries stickies = TENT_ENTRIES_INITIALIZER;
+		struct tent_tree *stt;
+
+		if(get_sticky_inputs(cmdtent->tnode.tupid, &stickies, NULL) < 0)
+			return -1;
+
+		RB_FOREACH(stt, tent_entries, &stickies) {
+			if(stt->tent->type == TUP_NODE_FILE ||
+			   stt->tent->type == TUP_NODE_GENERATED) {
+				print_compile_db(f, cmdtent, stt->tent);
+			}
+		}
+		free_tent_tree(&stickies);
+
+		empty = 0;
+	}
+	fprintf(f, "\n]\n");
+	if(tup_db_commit() < 0)
+		return -1;
+	free_tent_tree(&root);
+	if(empty) {
+		fprintf(stderr, "tup warning: No commands exported to compiledb. You may need to add the ^j flag to commands that should be exported.\n");
+	}
+	return 0;
+}
+
+int tup_db_print_commandline(struct tup_entry *tent)
+{
+	struct tent_entries root = TENT_ENTRIES_INITIALIZER;
+	struct tent_tree *tt;
+	int found = 0;
+
+	if(get_sticky_outputs(tent->tnode.tupid, &root) < 0) {
+		return -1;
+	}
+
+	RB_FOREACH(tt, tent_entries, &root) {
+		/* Look through all possible commands that we are a sticky
+		 * input to for one that has our name in it. Usually there will
+		 * be only one command, but if there are multiple we'd want the
+		 * one that lists us on the command-line.
+		 */
+		if(strstr(tt->tent->name.s, tent->name.s) != NULL) {
+			print_compile_db(stdout, tt->tent, tent);
+			found = 1;
+			break;
+		}
+	}
+	if(!found && root.count > 0) {
+		tt = RB_MIN(tent_entries, &root);
+		print_compile_db(stdout, tt->tent, tent);
+	}
+
+	free_tent_tree(&root);
+	return 0;
+}
+
 int tup_db_get_vardb(struct tup_entry *dtent, struct vardb *vdb)
 {
 	int rc = -1;
@@ -7416,7 +7653,7 @@ int tup_db_get_vardb(struct tup_entry *dtent, struct vardb *vdb)
 		 */
 		tent = tup_entry_find(tupid);
 		if(!tent)
-			if(tup_entry_add_to_dir(dtent, tupid, var, -1, NULL, 0, NULL, 0, type, -1, -1, &tent) <0)
+			if(tup_entry_add_to_dir(dtent, tupid, var, -1, NULL, 0, NULL, 0, type, INVALID_MTIME, -1, &tent) <0)
 				goto out_reset;
 		if(vardb_set(vdb, var, value, tent) < 0)
 			goto out_reset;

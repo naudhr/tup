@@ -1,7 +1,7 @@
 #! /bin/sh -e
 # tup - A file-based build system
 #
-# Copyright (C) 2020-2021  Mike Shal <marfey@gmail.com>
+# Copyright (C) 2020-2024  Mike Shal <marfey@gmail.com>
 #
 # This program is free software; you can redistribute it and/or modify
 # it under the terms of the GNU General Public License version 2 as
@@ -33,7 +33,6 @@ update
 check_not_exist tmp.txt
 
 echo 'blah' > input.txt
-tup touch input.txt
 update -j1
 (echo foo; echo blah) | diff - final.txt
 check_not_exist tmp.txt

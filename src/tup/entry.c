@@ -2,7 +2,7 @@
  *
  * tup - A file-based build system
  *
- * Copyright (C) 2009-2021  Mike Shal <marfey@gmail.com>
+ * Copyright (C) 2009-2024  Mike Shal <marfey@gmail.com>
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 as
@@ -47,7 +47,7 @@ static struct tup_entry *new_entry(tupid_t tupid, tupid_t dt,
 				   const char *name, int len,
 				   const char *display, int displaylen, const char *flags, int flagslen,
 				   enum TUP_NODE_TYPE type,
-				   time_t mtime, tupid_t srcid);
+				   struct timespec mtime, tupid_t srcid);
 static int rm_entry(tupid_t tupid, int safe);
 static int resolve_parent(struct tup_entry *tent);
 static int change_name(struct tup_entry *tent, const char *new_name);
@@ -151,7 +151,7 @@ static int rm_entry(tupid_t tupid, int safe)
 		string_tree_rm(&tent->parent->entries, &tent->name);
 	}
 	if(tent->re) {
-		pcre_free(tent->re);
+		pcre2_code_free(tent->re);
 	}
 	free_tent_tree(&tent->stickies);
 	free_tent_tree(&tent->group_stickies);
@@ -195,16 +195,14 @@ void tup_entry_set_verbose(int verbose)
 /* Returns 0 in case if a root tup entry has been passed and thus nothing has
  * been printed, otherwise 1 is returned.
  */
-static int print_tup_entry_internal(FILE *f, struct tup_entry *tent)
+static int print_tup_entry_internal(FILE *f, struct tup_entry *tent, struct tup_entry *stop_at_tent)
 {
-	/* Skip empty entries, and skip '.' here (tent->parent == NULL) */
-	if(!tent || !tent->parent)
+	/* Skip empty entries, and skip '.' here (tent->parent == NULL), and
+	 * stop if we get to the start of the variant part (stop_at_tent)
+	 */
+	if(!tent || !tent->parent || tent == stop_at_tent)
 		return 0;
-	if(tup_entry_variant_null(tent) != tup_entry_variant_null(tent->parent)) {
-		fprintf(f, "[%s] ", tent->name.s);
-		return 0;
-	}
-	if(print_tup_entry_internal(f, tent->parent))
+	if(print_tup_entry_internal(f, tent->parent, stop_at_tent))
 		fprintf(f, "%c", path_sep());
 	/* Don't print anything for the slash root entry */
 	if(tent->name.s[0] != '/')
@@ -216,23 +214,45 @@ void print_tup_entry(FILE *f, struct tup_entry *tent)
 {
 	const char *name;
 	int name_sz = 0;
+	struct variant *variant;
+	struct tup_entry *variant_part = NULL;
 
 	if(!tent)
 		return;
-	if(print_tup_entry_internal(f, tent->parent)) {
-		if(tent->type == TUP_NODE_CMD) {
-			fprintf(f, ": ");
-		} else {
-			fprintf(f, "%c", path_sep());
+
+	/* If we're in a variant, first print the variant part of the path in
+	 * brackets, like: [build/debug]
+	 */
+	variant = tup_entry_variant_null(tent);
+	if(tent->parent && variant && !variant->root_variant) {
+		fprintf(f, "[");
+		variant_part = tent;
+		while(variant_part && variant_part->parent && tup_entry_variant_null(variant_part->parent) == variant) {
+			variant_part = variant_part->parent;
 		}
+		print_tup_entry_internal(f, variant_part, NULL);
+		fprintf(f, "] ");
 	}
-	if(tent->parent && tup_entry_variant_null(tent) != tup_entry_variant_null(tent->parent)) {
-		fprintf(f, "[%s] ", tent->name.s);
-		name = ".";
-		name_sz = 1;
-	} else {
+
+	/* Now print the rest of the path */
+	if(tent != variant_part) {
+		if(print_tup_entry_internal(f, tent->parent, variant_part)) {
+			if(tent->type == TUP_NODE_CMD) {
+				fprintf(f, ": ");
+			} else {
+				fprintf(f, "%c", path_sep());
+			}
+		}
 		name = tent->name.s;
 		name_sz = tent->name.len;
+	} else {
+		/* If we're printing the variant directory itself (like the
+		 * path to build-debug or builds/debug, then print just a "."
+		 * since the whole path itself will be included in the variant
+		 * brackets earlier.
+		 */
+		name = ".";
+		name_sz = 1;
 	}
 	if(!do_verbose && tent->display) {
 		name = tent->display;
@@ -264,9 +284,30 @@ int snprint_tup_entry(char *dest, int len, struct tup_entry *tent)
 	return rc;
 }
 
+int write_tup_entry(FILE *f, struct tup_entry *tent)
+{
+	/* Write out the tup entry unformatted, with OS-specific separators
+	 * (unlike print_tup_entry, which is a pretty-print)
+	 */
+	if(!tent)
+		return 0;
+	if(tent->tnode.tupid == DOT_DT) {
+		fprintf(f, ".");
+		return 0;
+	}
+	if(tent->parent->tnode.tupid != DOT_DT) {
+		if(write_tup_entry(f, tent->parent) < 0)
+			return -1;
+	}
+	fprintf(f, "%s", tent->name.s);
+	if(tent->type == TUP_NODE_DIR)
+		fprintf(f, "%c", path_sep());
+	return 0;
+}
+
 int tup_entry_add_to_dir(struct tup_entry *dtent, tupid_t tupid, const char *name, int len,
 			 const char *display, int displaylen, const char *flags, int flagslen,
-			 enum TUP_NODE_TYPE type, time_t mtime, tupid_t srcid,
+			 enum TUP_NODE_TYPE type, struct timespec mtime, tupid_t srcid,
 			 struct tup_entry **dest)
 {
 	struct tup_entry *tent;
@@ -282,7 +323,7 @@ int tup_entry_add_to_dir(struct tup_entry *dtent, tupid_t tupid, const char *nam
 }
 
 int tup_entry_add_all(tupid_t tupid, tupid_t dt, enum TUP_NODE_TYPE type,
-		      time_t mtime, tupid_t srcid, const char *name, const char *display, const char *flags,
+		      struct timespec mtime, tupid_t srcid, const char *name, const char *display, const char *flags,
 		      struct tup_entry **dest)
 {
 	struct tup_entry *tent;
@@ -438,7 +479,7 @@ static struct tup_entry *new_entry(tupid_t tupid, tupid_t dt,
 				   const char *name, int len,
 				   const char *display, int displaylen, const char *flags, int flagslen,
 				   enum TUP_NODE_TYPE type,
-				   time_t mtime, tupid_t srcid)
+				   struct timespec mtime, tupid_t srcid)
 {
 	struct tup_entry *tent;
 
@@ -483,11 +524,13 @@ static struct tup_entry *new_entry(tupid_t tupid, tupid_t dt,
 	RB_INIT(&tent->entries);
 
 	if(tent->dt == exclusion_dt()) {
-		const char *error;
-		int erroffset;
-		tent->re = pcre_compile(tent->name.s, 0, &error, &erroffset, NULL);
+		int error;
+		size_t erroffset;
+		tent->re = pcre2_compile((PCRE2_SPTR)tent->name.s, PCRE2_ZERO_TERMINATED, 0, &error, &erroffset, NULL);
 		if(!tent->re) {
-			fprintf(stderr, "tup error: Unable to compile regular expression '%s' at offset %i: %s\n", tent->name.s, erroffset, error);
+			PCRE2_UCHAR buffer[256];
+			pcre2_get_error_message(error, buffer, sizeof(buffer));
+			fprintf(stderr, "tup error: Unable to compile regular expression '%s' at offset %zi: %s\n", tent->name.s, erroffset, buffer);
 			return NULL;
 		}
 	} else {
@@ -672,10 +715,19 @@ static int get_full_path_tents(tupid_t tupid, struct tent_list_head *head)
 
 int get_relative_dir(FILE *f, struct estring *e, tupid_t start, tupid_t end)
 {
+	/* For resource files, always use '/' as the separator.  Both cl and
+	 * cygwin can handle '/', but cygwin can't handle '\'.
+	 */
+	return get_relative_dir_sep(f, e, start, end, '/');
+}
+
+int get_relative_dir_sep(FILE *f, struct estring *e, tupid_t start, tupid_t end, char sep)
+{
 	struct tent_list_head startlist;
 	struct tent_list_head endlist;
 	struct tent_list *startentry;
 	struct tent_list *endentry;
+	char sep_str[2] = {sep, 0};
 	int first = 0;
 
 	tent_list_init(&startlist);
@@ -701,14 +753,10 @@ int get_relative_dir(FILE *f, struct estring *e, tupid_t start, tupid_t end)
 		if(!first) {
 			first = 1;
 		} else {
-			/* For resource files, always use '/' as the separator.
-			 * Both cl and cygwin can handle '/', but cygwin can't
-			 * handle '\'.
-			 */
 			if(f)
-				fprintf(f, "/");
+				fprintf(f, "%s", sep_str);
 			if(e)
-				if(estring_append(e, "/", 1) < 0)
+				if(estring_append(e, sep_str, 1) < 0)
 					return -1;
 		}
 		if(f)
@@ -721,11 +769,10 @@ int get_relative_dir(FILE *f, struct estring *e, tupid_t start, tupid_t end)
 		if(!first) {
 			first = 1;
 		} else {
-			/* Resource files always use '/' - see above */
 			if(f)
-				fprintf(f, "/");
+				fprintf(f, "%s", sep_str);
 			if(e)
-				if(estring_append(e, "/", 1) < 0)
+				if(estring_append(e, sep_str, 1) < 0)
 					return -1;
 		}
 		if(f)
@@ -747,27 +794,39 @@ int get_relative_dir(FILE *f, struct estring *e, tupid_t start, tupid_t end)
 	return 0;
 }
 
-int is_transient_tent(struct tup_entry *tent)
+static int has_flag(struct tup_entry *tent, char c)
 {
-	return memchr(tent->flags, 't', tent->flagslen) != NULL;
+	return memchr(tent->flags, c, tent->flagslen) != NULL;
 }
 
-int exclusion_match(FILE *f, struct tent_entries *exclusion_root, const char *s, int *match)
+int is_transient_tent(struct tup_entry *tent)
+{
+	return has_flag(tent, 't');
+}
+
+int is_compiledb_tent(struct tup_entry *tent)
+{
+	return has_flag(tent, 'j');
+}
+
+int exclusion_match(FILE *f, struct tent_entries *exclusion_root, const char *s, struct tup_entry **match)
 {
 	struct tent_tree *tt;
 	int len = strlen(s);
 
-	*match = 0;
+	*match = NULL;
 	RB_FOREACH(tt, tent_entries, exclusion_root) {
 		int rc;
-		rc = pcre_exec(tt->tent->re, NULL, s, len, 0, 0, NULL, 0);
-		if(rc == 0) {
-			*match = 1;
+		pcre2_match_data *re_match = pcre2_match_data_create_from_pattern(tt->tent->re, NULL);
+		rc = pcre2_match(tt->tent->re, (PCRE2_SPTR)s, len, 0, 0, re_match, NULL);
+		pcre2_match_data_free(re_match);
+		if(rc >= 0) {
+			*match = tt->tent;
 			if(do_verbose) {
 				fprintf(f, "tup info: Ignoring file '%s' because it matched the regex '%s'\n", s, tt->tent->name.s);
 			}
 			break;
-		} else if(rc != PCRE_ERROR_NOMATCH) {
+		} else if(rc != PCRE2_ERROR_NOMATCH) {
 			fprintf(f, "tup error: Regex failed to execute: %s\n", tt->tent->name.s);
 			return -1;
 		}

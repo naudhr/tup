@@ -1,7 +1,7 @@
 #! /bin/sh -e
 # tup - A file-based build system
 #
-# Copyright (C) 2009-2021  Mike Shal <marfey@gmail.com>
+# Copyright (C) 2009-2024  Mike Shal <marfey@gmail.com>
 #
 # This program is free software; you can redistribute it and/or modify
 # it under the terms of the GNU General Public License version 2 as
@@ -27,14 +27,12 @@ cat > Tupfile << HERE
 : foo.txt |> cp %f %o |> bar.txt
 HERE
 echo 'orig' > foo.txt
-tup touch foo.txt Tupfile
 update
 
 check_exist foo.txt bar.txt
 
 # Just try to overwrite bar.txt - should be regenerated with the original text.
 echo 'new file' > bar.txt
-tup touch bar.txt
 update
 
 echo orig | diff - bar.txt
@@ -43,7 +41,6 @@ echo orig | diff - bar.txt
 # with the new text.
 echo 'new file' > bar.txt
 echo "" > Tupfile
-tup touch bar.txt Tupfile
 update
 
 check_exist foo.txt bar.txt

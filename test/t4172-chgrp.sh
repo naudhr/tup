@@ -1,7 +1,7 @@
 #! /bin/sh -e
 # tup - A file-based build system
 #
-# Copyright (C) 2015-2021  Mike Shal <marfey@gmail.com>
+# Copyright (C) 2015-2024  Mike Shal <marfey@gmail.com>
 #
 # This program is free software; you can redistribute it and/or modify
 # it under the terms of the GNU General Public License version 2 as
@@ -34,7 +34,6 @@ group = marf
 endif
 : |> touch %o; chgrp \$(group) %o |> test1
 HERE
-tup touch Tupfile
 update
 
 cat > Tupfile << HERE
@@ -45,7 +44,7 @@ group = marf
 endif
 : |> chgrp \$(group) test2 |>
 HERE
-tup touch Tupfile test2
+touch test2
 update_fail_msg "tup error.*chown"
 
 eotup

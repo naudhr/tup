@@ -2,7 +2,7 @@
  *
  * tup - A file-based build system
  *
- * Copyright (C) 2008-2021  Mike Shal <marfey@gmail.com>
+ * Copyright (C) 2008-2024  Mike Shal <marfey@gmail.com>
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 as
@@ -32,8 +32,6 @@ struct tup_entry;
 struct vardb {
 	struct string_entries root;
 	int count;
-	char *(*external_vardb)(void *arg, const char *var, int varlen);
-	void *external_arg;
 };
 
 struct var_entry {
@@ -58,28 +56,5 @@ int vardb_compare(struct vardb *vdba, struct vardb *vdbb,
 		  int (*same)(struct var_entry *vea, struct var_entry *veb),
 		  struct tup_entry *var_dtent);
 void vardb_dump(struct vardb *v);
-
-/* Node variables */
-
-struct node_vardb {
-   struct string_entries root;
-   int count;
-};
-
-struct node_var_entry {
-   struct string_tree var;
-   struct tent_list_head nodes;
-};
-
-int nodedb_init(struct node_vardb *v);
-int nodedb_close(struct node_vardb *v);
-int nodedb_set(struct node_vardb *v, const char *var,
-               struct tup_entry *tent);
-int nodedb_append(struct node_vardb *v, const char *var,
-                  struct tup_entry *tent);
-int nodedb_copy(struct node_vardb *v, const char *var, int varlen,
-                struct estring *e, tupid_t relative_to);
-struct node_var_entry *nodedb_get(struct node_vardb *v,
-                                  const char *var, int varlen);
 
 #endif

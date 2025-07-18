@@ -1,7 +1,7 @@
 #! /bin/sh -e
 # tup - A file-based build system
 #
-# Copyright (C) 2012-2021  Mike Shal <marfey@gmail.com>
+# Copyright (C) 2012-2024  Mike Shal <marfey@gmail.com>
 #
 # This program is free software; you can redistribute it and/or modify
 # it under the terms of the GNU General Public License version 2 as
@@ -26,12 +26,11 @@
 . ./tup.sh
 check_no_windows shell
 
-tmkdir secret
+mkdir secret
 
 cat > Tupfile << HERE
 : |> (cat secret/ghost 2>/dev/null || echo nofile) > %o |> output.txt
 HERE
-tup touch Tupfile
 update
 echo 'nofile' | diff - output.txt
 
@@ -39,7 +38,7 @@ rmdir secret
 update
 echo 'nofile' | diff - output.txt
 
-tmkdir secret
+mkdir secret
 echo 'foo' > secret/ghost
 update
 echo 'foo' | diff - output.txt

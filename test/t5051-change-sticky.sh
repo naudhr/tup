@@ -1,7 +1,7 @@
 #! /bin/sh -e
 # tup - A file-based build system
 #
-# Copyright (C) 2009-2021  Mike Shal <marfey@gmail.com>
+# Copyright (C) 2009-2024  Mike Shal <marfey@gmail.com>
 #
 # This program is free software; you can redistribute it and/or modify
 # it under the terms of the GNU General Public License version 2 as
@@ -25,7 +25,7 @@
 # in update_fail_msg
 check_no_windows
 
-tmkdir headers
+mkdir headers
 cat > headers/Tupfile << HERE
 : |> echo '#define FOO 3' > %o |> foo.h
 HERE
@@ -33,7 +33,6 @@ cat > Tupfile << HERE
 : foreach *.c | headers/*.h |> gcc -c %f -o %o |> %B.o
 HERE
 echo '#include "headers/foo.h"' > foo.c
-tup touch foo.c Tupfile headers/Tupfile
 update
 
 check_exist foo.o
@@ -69,12 +68,10 @@ tup_object_no_exist headers bar.h
 # Only removing a sticky link that is used should try to re-compile (and fail)
 cat > headers/Tupfile << HERE
 HERE
-tup touch headers/Tupfile
 update_fail_msg "headers/foo.h.*\(No such file or directory\|file not found\)"
 
 # Fix the C file and re-build
 echo '' > foo.c
-tup touch foo.c
 update --no-scan
 tup_object_no_exist headers foo.h
 tup_object_no_exist headers bar.h

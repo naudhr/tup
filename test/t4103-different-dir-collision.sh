@@ -1,7 +1,7 @@
 #! /bin/sh -e
 # tup - A file-based build system
 #
-# Copyright (C) 2013-2021  Mike Shal <marfey@gmail.com>
+# Copyright (C) 2013-2024  Mike Shal <marfey@gmail.com>
 #
 # This program is free software; you can redistribute it and/or modify
 # it under the terms of the GNU General Public License version 2 as
@@ -21,9 +21,9 @@
 
 . ./tup.sh
 
-tmkdir foo
-tmkdir bar
-tmkdir baz
+mkdir foo
+mkdir bar
+mkdir baz
 echo foo > foo/foo.txt
 echo bar > bar/bar.txt
 cat > foo/Tupfile << HERE
@@ -32,13 +32,11 @@ HERE
 cat > bar/Tupfile << HERE
 : |> cp bar.txt %o |> ../baz/baz.txt
 HERE
-tup touch foo/Tupfile bar/Tupfile
 update_fail_msg "Unable to create output file '../baz.baz.txt'"
 
 # Correctly create foo.txt
 cat > bar/Tupfile << HERE
 HERE
-tup touch bar/Tupfile
 update
 
 echo foo | diff - baz/baz.txt
@@ -49,7 +47,6 @@ HERE
 cat > bar/Tupfile << HERE
 : |> cp bar.txt %o |> ../baz/baz.txt
 HERE
-tup touch foo/Tupfile bar/Tupfile
 update
 
 echo bar | diff - baz/baz.txt
@@ -60,7 +57,6 @@ cat > foo/Tupfile << HERE
 HERE
 cat > bar/Tupfile << HERE
 HERE
-tup touch foo/Tupfile bar/Tupfile
 update
 
 echo foo | diff - baz/baz.txt
@@ -69,7 +65,6 @@ echo foo | diff - baz/baz.txt
 cat > bar/Tupfile << HERE
 : |> cp bar.txt %o |> ../baz/baz.txt
 HERE
-tup touch bar/Tupfile
 update_fail_msg "Unable to create output file '../baz.baz.txt'"
 
 eotup

@@ -1,7 +1,7 @@
 #! /bin/sh -e
 # tup - A file-based build system
 #
-# Copyright (C) 2013-2021  Mike Shal <marfey@gmail.com>
+# Copyright (C) 2013-2024  Mike Shal <marfey@gmail.com>
 #
 # This program is free software; you can redistribute it and/or modify
 # it under the terms of the GNU General Public License version 2 as
@@ -32,8 +32,8 @@ cat > Tuprules.tup << HERE
 MY_ROOT = \$(TUP_CWD)
 HERE
 
-tmkdir foo
-tmkdir bar
+mkdir foo
+mkdir bar
 cat > foo/Tupfile << HERE
 include_rules
 : |> ^o^ touch %o |> foo.txt | \$(MY_ROOT)/<txt>
@@ -55,7 +55,6 @@ cat > foo/Tupfile << HERE
 include_rules
 : |> ^o^ touch %o |> foo.txt newfoo.txt | \$(MY_ROOT)/<txt>
 HERE
-tup touch foo/Tupfile
 update
 
 check_list foo/foo.txt mylist.txt
@@ -66,7 +65,6 @@ cat > foo/Tupfile << HERE
 include_rules
 : |> ^o^ touch %o |> foo.txt | \$(MY_ROOT)/<txt>
 HERE
-tup touch foo/Tupfile
 update
 
 check_list foo/foo.txt mylist.txt

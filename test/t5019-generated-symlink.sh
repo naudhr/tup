@@ -1,7 +1,7 @@
 #! /bin/sh -e
 # tup - A file-based build system
 #
-# Copyright (C) 2009-2021  Mike Shal <marfey@gmail.com>
+# Copyright (C) 2009-2024  Mike Shal <marfey@gmail.com>
 #
 # This program is free software; you can redistribute it and/or modify
 # it under the terms of the GNU General Public License version 2 as
@@ -28,7 +28,6 @@ ARCH = x86
 : foo-\$(ARCH).h |> ln -s %f %o |> foo.h
 : foreach *.c | foo.h |> gcc -c %f -o %o |> %B.o
 HERE
-tup touch foo.c foo-x86.h foo-ppc.h
 update
 check_exist foo.o
 
@@ -41,7 +40,6 @@ ARCH = ppc
 : foo-\$(ARCH).h |> ln -s %f %o |> foo.h
 : foreach *.c | foo.h |> gcc -c %f -o %o |> %B.o
 HERE
-tup touch Tupfile
 update
 check_updates foo-ppc.h foo.o
 check_updates foo.h foo.o

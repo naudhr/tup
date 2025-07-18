@@ -1,7 +1,7 @@
 #! /bin/sh -e
 # tup - A file-based build system
 #
-# Copyright (C) 2011-2021  Mike Shal <marfey@gmail.com>
+# Copyright (C) 2011-2024  Mike Shal <marfey@gmail.com>
 #
 # This program is free software; you can redistribute it and/or modify
 # it under the terms of the GNU General Public License version 2 as
@@ -38,9 +38,9 @@ HERE
 tup flush
 check_exist prog
 
-if ! cat .tup/.monitor.output | grep Updated | wc -l | grep 1 > /dev/null; then
+if [ "$(grep -c Updated .tup/.monitor.output)" != 1 ]; then
 	sleep 0.5
-	if ! cat .tup/.monitor.output | grep Updated | wc -l | grep 1 > /dev/null; then
+	if [ "$(grep -c Updated .tup/.monitor.output)" != 1 ]; then
 		echo "Monitor output:" 1>&2
 		cat .tup/.monitor.output 1>&2
 		echo "Error: tup should only update once" 1>&2

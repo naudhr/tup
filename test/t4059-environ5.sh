@@ -1,7 +1,7 @@
 #! /bin/sh -e
 # tup - A file-based build system
 #
-# Copyright (C) 2011-2021  Mike Shal <marfey@gmail.com>
+# Copyright (C) 2011-2024  Mike Shal <marfey@gmail.com>
 #
 # This program is free software; you can redistribute it and/or modify
 # it under the terms of the GNU General Public License version 2 as
@@ -24,7 +24,7 @@
 # Seems there is a problem with putting gcc in the PATH?
 check_no_windows ???
 
-tmkdir sub
+mkdir sub
 cat > sub/gcc << HERE
 #! /bin/sh
 echo hey > foo.o
@@ -35,7 +35,6 @@ cat > Tupfile << HERE
 : foo.c |> gcc -c %f -o %o |> %B.o
 HERE
 echo 'int foo(void) {return 7;}' > foo.c
-tup touch foo.c Tupfile sub/gcc
 update
 sym_check foo.o foo
 

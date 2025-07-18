@@ -3,7 +3,7 @@
  * tup - A file-based build system
  *
  * Copyright (C) 2010  James McKaskill
- * Copyright (C) 2010-2021  Mike Shal <marfey@gmail.com>
+ * Copyright (C) 2010-2024  Mike Shal <marfey@gmail.com>
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 as
@@ -24,6 +24,7 @@
 #include "tup/flist.h"
 #include "tup/environ.h"
 #include "tup/entry.h"
+#include "tup/estring.h"
 #include "tup/variant.h"
 #include "tup/ccache.h"
 #include "dllinject/dllinject.h"
@@ -188,20 +189,25 @@ static int create_process(struct server *s, int dfd, char *cmdline,
 	sec.lpSecurityDescriptor = NULL;
 	sec.bInheritHandle = TRUE;
 
-	if(chdir(win32_get_dirpath(tup_top_fd())) < 0) {
-		perror("chdir");
-		fprintf(stderr, "tup error: Unable to chdir to the project root directory to create a temporary output file.\n");
-		return -1;
+	if(!s->streaming_mode) {
+		if(chdir(win32_get_dirpath(tup_top_fd())) < 0) {
+			perror("chdir");
+			fprintf(stderr, "tup error: Unable to chdir to the project root directory to create a temporary output file.\n");
+			return -1;
+		}
+		swprintf(buf, 64, L".tup\\tmp\\output-%i", s->id);
+		buf[63] = 0;
+		sa.hStdOutput = CreateFile(buf, GENERIC_WRITE, 0, &sec, CREATE_ALWAYS, FILE_ATTRIBUTE_TEMPORARY, NULL);
+		if(sa.hStdOutput == INVALID_HANDLE_VALUE) {
+			fprintf(stderr, "tup error: Unable to create temporary file for stdout\n");
+			return -1;
+		}
+		sa.hStdError = sa.hStdOutput;
+	} else {
+		sa.hStdOutput = GetStdHandle(STD_OUTPUT_HANDLE);
+		sa.hStdError = GetStdHandle(STD_ERROR_HANDLE);
 	}
-	swprintf(buf, 64, L".tup\\tmp\\output-%i", s->id);
-	buf[63] = 0;
 	sa.hStdInput = nul_handle;
-	sa.hStdOutput = CreateFile(buf, GENERIC_WRITE, 0, &sec, CREATE_ALWAYS, FILE_ATTRIBUTE_TEMPORARY, NULL);
-	if(sa.hStdOutput == INVALID_HANDLE_VALUE) {
-		fprintf(stderr, "tup error: Unable to create temporary file for stdout\n");
-		return -1;
-	}
-	sa.hStdError = sa.hStdOutput;
 	sa.dwFlags = STARTF_USESTDHANDLES;
 
 	pi->hProcess = INVALID_HANDLE_VALUE;
@@ -237,7 +243,9 @@ static int create_process(struct server *s, int dfd, char *cmdline,
 		NULL,
 		&sa,
 		pi);
-	CloseHandle(sa.hStdOutput);
+	if(!s->streaming_mode) {
+		CloseHandle(sa.hStdOutput);
+	}
 	free(wcmdline);
 
 	if(!ret)
@@ -249,15 +257,12 @@ static int create_process(struct server *s, int dfd, char *cmdline,
 #define BASHSTR "bash -e -o pipefail -c '"
 #define CMDSTR "CMD.EXE /Q /C "
 int server_exec(struct server *s, int dfd, const char *cmd, struct tup_env *newenv,
-		struct tup_entry *dtent, int need_namespacing, int run_in_bash)
+		struct tup_entry *dtent)
 {
 	int rc = -1;
 	DWORD return_code = 1;
 	PROCESS_INFORMATION pi;
-	size_t namesz = strlen(cmd);
-	size_t cmdsz = sizeof(CMDSTR) - 1;
-	char* cmdline = (char*) __builtin_alloca(namesz + cmdsz + 1 + 1);
-	char buf[64];
+	struct estring cmdline;
 	char depfile[PATH_MAX];
 	char vardict_file[PATH_MAX];
 	HANDLE h;
@@ -273,8 +278,6 @@ int server_exec(struct server *s, int dfd, const char *cmd, struct tup_env *newe
 	int need_sh = 0;
 	int need_cmd = 0;
 	int append_quote = 0;
-
-	if(need_namespacing) {}
 
 	if(initialize_depfile(s, depfile, &h) < 0) {
 		fprintf(stderr, "Error starting update server.\n");
@@ -297,7 +300,8 @@ int server_exec(struct server *s, int dfd, const char *cmd, struct tup_env *newe
 	}
 	vardict_file[get_tup_top_len() + 1 + strlen(variant->vardict_file)] = 0;
 
-	cmdline[0] = '\0';
+	if(estring_init(&cmdline) < 0)
+		return -1;
 	/* Only pull in cmd/sh if really necessary */
 	if(!have_shell) {
 		need_sh = strncmp(cmd, "./", 2) == 0 ||
@@ -306,23 +310,28 @@ int server_exec(struct server *s, int dfd, const char *cmd, struct tup_env *newe
 			strchr(cmd, '|') != NULL ||
 			strchr(cmd, '>') != NULL ||
 			strchr(cmd, '<') != NULL;
-		if(run_in_bash) {
-			strcat(cmdline, BASHSTR);
+		if(s->run_in_bash) {
+			if(estring_append(&cmdline, BASHSTR, strlen(BASHSTR)) < 0)
+				return -1;
 			append_quote = 1;
 		} else if(need_sh) {
-			strcat(cmdline, SHSTR);
+			if(estring_append(&cmdline, SHSTR, strlen(SHSTR)) < 0)
+				return -1;
 			append_quote = 1;
 		} else if(need_cmd) {
-			strcat(cmdline, CMDSTR);
+			if(estring_append(&cmdline, CMDSTR, strlen(CMDSTR)) < 0)
+				return -1;
 		}
 	}
-	strcat(cmdline, cmd);
+	if(estring_append(&cmdline, cmd, strlen(cmd)) < 0)
+		return -1;
 	if(append_quote) {
-		strcat(cmdline, "'");
+		if(estring_append(&cmdline, "'", 1) < 0)
+			return -1;
 	}
 
 	pthread_mutex_lock(&dir_mutex);
-	if(create_process(s, dfd, cmdline, newenv, &pi) < 0) {
+	if(create_process(s, dfd, cmdline.s, newenv, &pi) < 0) {
 		pthread_mutex_lock(s->error_mutex);
 		fprintf(stderr, "tup error: failed to create child process: %s\n", strerror(errno));
 		if(errno == ERANGE) {
@@ -333,6 +342,7 @@ int server_exec(struct server *s, int dfd, const char *cmd, struct tup_env *newe
 		pthread_mutex_unlock(&dir_mutex);
 		goto end;
 	}
+	free(cmdline.s);
 	pthread_mutex_unlock(&dir_mutex);
 
 	if(tup_inject_dll(&pi, depfile, vardict_file)) {
@@ -370,15 +380,18 @@ int server_exec(struct server *s, int dfd, const char *cmd, struct tup_env *newe
 		goto err_terminate;
 	}
 
-	snprintf(buf, sizeof(buf), ".tup/tmp/output-%i", s->id);
-	buf[sizeof(buf)-1] = 0;
-	s->output_fd = openat(tup_top_fd(), buf, O_RDONLY);
-	if(s->output_fd < 0) {
-		pthread_mutex_lock(s->error_mutex);
-		perror(buf);
-		fprintf(stderr, "tup error: Unable to open sub-process output file after the process completed.\n");
-		pthread_mutex_unlock(s->error_mutex);
-		goto end;
+	if(!s->streaming_mode) {
+		char buf[64];
+		snprintf(buf, sizeof(buf), ".tup/tmp/output-%i", s->id);
+		buf[sizeof(buf)-1] = 0;
+		s->output_fd = openat(tup_top_fd(), buf, O_RDONLY);
+		if(s->output_fd < 0) {
+			pthread_mutex_lock(s->error_mutex);
+			perror(buf);
+			fprintf(stderr, "tup error: Unable to open sub-process output file after the process completed.\n");
+			pthread_mutex_unlock(s->error_mutex);
+			goto end;
+		}
 	}
 
 	s->exited = 1;
@@ -415,15 +428,17 @@ err_terminate:
 
 int server_postexec(struct server *s)
 {
-	char buf[64];
-	snprintf(buf, sizeof(buf), ".tup/tmp/output-%i", s->id);
-	buf[sizeof(buf)-1] = 0;
-	if(unlinkat(tup_top_fd(), buf, 0) < 0) {
-		pthread_mutex_lock(s->error_mutex);
-		perror(buf);
-		fprintf(stderr, "tup error: Unable to unlink sub-process output file.\n");
-		pthread_mutex_unlock(s->error_mutex);
-		return -1;
+	if(!s->streaming_mode) {
+		char buf[64];
+		snprintf(buf, sizeof(buf), ".tup/tmp/output-%i", s->id);
+		buf[sizeof(buf)-1] = 0;
+		if(unlinkat(tup_top_fd(), buf, 0) < 0) {
+			pthread_mutex_lock(s->error_mutex);
+			perror(buf);
+			fprintf(stderr, "tup error: Unable to unlink sub-process output file.\n");
+			pthread_mutex_unlock(s->error_mutex);
+			return -1;
+		}
 	}
 	return 0;
 }
@@ -470,7 +485,7 @@ int serverless_run_script(FILE *f, const char *cmdline,
 	return -1;
 }
 
-int server_symlink(struct server *s, struct tup_entry *dtent, const char *target, int dfd, const char *linkpath)
+int server_symlink(struct server *s, struct tup_entry *dtent, const char *target, int dfd, const char *linkpath, struct tup_entry *output_tent)
 {
 	char depfile[PATH_MAX];
 	char dest[PATH_MAX];
@@ -479,7 +494,7 @@ int server_symlink(struct server *s, struct tup_entry *dtent, const char *target
 	wchar_t wdest[PATH_MAX];
 	int rc;
 
-	if(dtent) {/* unused */}
+	if(dtent || output_tent) {/* unused */}
 	rc = dir_mutex_lock(dfd);
 	if(rc < 0)
 		return rc;

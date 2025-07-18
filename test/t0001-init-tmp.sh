@@ -1,7 +1,7 @@
 #! /bin/sh -e
 # tup - A file-based build system
 #
-# Copyright (C) 2010-2021  Mike Shal <marfey@gmail.com>
+# Copyright (C) 2010-2024  Mike Shal <marfey@gmail.com>
 #
 # This program is free software; you can redistribute it and/or modify
 # it under the terms of the GNU General Public License version 2 as
@@ -28,17 +28,14 @@ cleanup()
 	rm -rf $tmpdir
 }
 
-trap cleanup INT TERM
+trap cleanup EXIT INT TERM
 cleanup
 mkdir $tmpdir
 cd $tmpdir
 tup init
 if [ ! -f ".tup/db" ]; then
 	echo ".tup/db not created!" 1>&2
-	cleanup
 	exit 1
 fi
-cleanup
 
-cd $tupcurdir
 eotup

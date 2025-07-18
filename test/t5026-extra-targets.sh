@@ -1,7 +1,7 @@
 #! /bin/sh -e
 # tup - A file-based build system
 #
-# Copyright (C) 2009-2021  Mike Shal <marfey@gmail.com>
+# Copyright (C) 2009-2024  Mike Shal <marfey@gmail.com>
 #
 # This program is free software; you can redistribute it and/or modify
 # it under the terms of the GNU General Public License version 2 as
@@ -22,7 +22,7 @@
 cat > Tupfile << HERE
 : |> echo 'foo' > %o; echo yo > bar |> file1
 HERE
-tup touch bar Tupfile
+touch bar
 # Windows fails with 'Unspecified output files'
 update_fail_msg "\(tup error: Unable to truncate\|Unspecified output files\)"
 

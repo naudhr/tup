@@ -1,7 +1,7 @@
 #! /bin/sh -e
 # tup - A file-based build system
 #
-# Copyright (C) 2013-2021  Mike Shal <marfey@gmail.com>
+# Copyright (C) 2013-2024  Mike Shal <marfey@gmail.com>
 #
 # This program is free software; you can redistribute it and/or modify
 # it under the terms of the GNU General Public License version 2 as
@@ -23,11 +23,11 @@ check_monitor_supported
 
 monitor
 
-tmkdir foo
-tmkdir foo/bar
+mkdir foo
+mkdir foo/bar
 touch foo/bar/Tupfile
-tmkdir build-debug
-tmkdir build-debug2
+mkdir build-debug
+mkdir build-debug2
 touch build-debug/tup.config
 touch build-debug2/tup.config
 update

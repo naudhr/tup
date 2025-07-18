@@ -1,7 +1,7 @@
 #! /bin/sh -e
 # tup - A file-based build system
 #
-# Copyright (C) 2018-2021  Mike Shal <marfey@gmail.com>
+# Copyright (C) 2018-2024  Mike Shal <marfey@gmail.com>
 #
 # This program is free software; you can redistribute it and/or modify
 # it under the terms of the GNU General Public License version 2 as
@@ -18,10 +18,8 @@
 
 # Make sure we can play nicely with ccache.
 . ./tup.sh
-if ! ccache --version | grep 'ccache version 3' > /dev/null; then
-	echo "[33mSkipping test: Expected ccache version 3[0m"
-	eotup
-fi
+
+check_ccache_version
 check_tup_suid
 
 set_full_deps
@@ -29,11 +27,11 @@ set_full_deps
 cat > Tupfile << HERE
 : foreach *.c |> ccache gcc -c %f -o %o |> %B.o
 HERE
-tup touch foo.c bar.c
+touch foo.c bar.c
 update
 
 echo 'int x;' > foo.c
-tup touch foo.c bar.c
+touch bar.c
 update
 
 eotup

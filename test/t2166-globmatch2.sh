@@ -1,7 +1,7 @@
 #! /bin/sh -e
 # tup - A file-based build system
 #
-# Copyright (C) 2013-2021  Mike Shal <marfey@gmail.com>
+# Copyright (C) 2013-2024  Mike Shal <marfey@gmail.com>
 #
 # This program is free software; you can redistribute it and/or modify
 # it under the terms of the GNU General Public License version 2 as
@@ -22,7 +22,7 @@
 cat > Tupfile << HERE
 : foreach [abc]_?ext.* |> touch %g_binary.t |> %g_binary.t
 HERE
-tup touch a_text.txt b_text.txt c_text.txt
+touch a_text.txt b_text.txt c_text.txt
 parse
 tup_object_exist . a_binary.t b_binary.t c_binary.t
 tup upd

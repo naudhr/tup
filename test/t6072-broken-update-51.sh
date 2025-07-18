@@ -1,7 +1,7 @@
 #! /bin/sh -e
 # tup - A file-based build system
 #
-# Copyright (C) 2014-2021  Mike Shal <marfey@gmail.com>
+# Copyright (C) 2014-2024  Mike Shal <marfey@gmail.com>
 #
 # This program is free software; you can redistribute it and/or modify
 # it under the terms of the GNU General Public License version 2 as
@@ -23,7 +23,7 @@
 # and then generated node still existed.
 . ./tup.sh
 
-tmkdir a
+mkdir a
 cat > Tuprules.tup << HERE
 TOP = \$(TUP_CWD)
 !cc = |> gcc -c %f -o %o |> \$(TOP)/%B.o \$(TOP)/<group>
@@ -33,7 +33,7 @@ include_rules
 
 : foreach *.c |> !cc |>
 HERE
-tup touch a/foo.c
+touch a/foo.c
 update
 
 rm -rf a

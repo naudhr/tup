@@ -1,7 +1,7 @@
 #! /bin/sh -e
 # tup - A file-based build system
 #
-# Copyright (C) 2018-2021  Mike Shal <marfey@gmail.com>
+# Copyright (C) 2018-2024  Mike Shal <marfey@gmail.com>
 #
 # This program is free software; you can redistribute it and/or modify
 # it under the terms of the GNU General Public License version 2 as
@@ -33,13 +33,12 @@ set_full_deps
 cat > Tupfile << HERE
 : $root/external/foo.txt |> cat blah.txt > %o |> out.txt
 HERE
-tup touch Tupfile blah.txt
+touch blah.txt
 update
 
 cat > Tupfile << HERE
 : |> cat blah.txt > %o |> out.txt
 HERE
-tup touch Tupfile
 update
 
 tup_object_no_exist $root/external foo.txt

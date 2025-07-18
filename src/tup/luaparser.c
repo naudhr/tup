@@ -3,7 +3,7 @@
  * tup - A file-based build system
  *
  * Copyright (C) 2013  Rendaw <rendaw@zarbosoft.com>
- * Copyright (C) 2013-2021  Mike Shal <marfey@gmail.com>
+ * Copyright (C) 2013-2024  Mike Shal <marfey@gmail.com>
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 as
@@ -54,7 +54,8 @@
 #include <assert.h>
 
 #include "luabuiltin/luabuiltin.h" /* Generated from builtin.lua */
-typedef lua_State * scriptdata;
+
+static struct lua_State *gls;
 
 struct tuplua_reader_data {
 	struct buf *b;
@@ -68,8 +69,10 @@ struct tuplua_glob_data {
 	int count;
 };
 
+static struct tupfile *top_tupfile(void);
 static int get_path_list(struct tupfile *tf, const char *p, struct path_list_head *plist, int orderid);
 
+static struct tupfile_head tupfile_list = SLIST_HEAD_INITIALIZER(tupfile_list);
 static int debug_run = 0;
 
 static const char *tuplua_tostring(struct lua_State *ls, int strindex)
@@ -122,16 +125,15 @@ static const char *tuplua_reader(struct lua_State *ls, void *data, size_t *size)
 	return lrd->b->s;
 }
 
-static void tuplua_register_function(struct lua_State *ls, const char *name, lua_CFunction function, void *data)
+static void tuplua_register_function(struct lua_State *ls, const char *name, lua_CFunction function)
 {
-	lua_pushlightuserdata(ls, data);
-	lua_pushcclosure(ls, function, 1);
+	lua_pushcfunction(ls, function);
 	lua_setfield(ls, 1, name);
 }
 
 static int tuplua_function_include(lua_State *ls)
 {
-	struct tupfile *tf = lua_touserdata(ls, lua_upvalueindex(1));
+	struct tupfile *tf = top_tupfile();
 	char *file = NULL;
 
 	file = tuplua_strdup(ls, -1);
@@ -140,7 +142,6 @@ static int tuplua_function_include(lua_State *ls)
 	if(file == NULL)
 		return luaL_error(ls, "Must be passed a filename as an argument.");
 
-	tf->ls = ls;
 	if(parser_include_file(tf, file) < 0) {
 		if (tf->luaerror == TUPLUA_NOERROR) {
 			luaL_where(ls, 1);
@@ -215,10 +216,9 @@ static char *tuplua_table_tostring(lua_State *ls)
 
 static int tuplua_function_definerule(lua_State *ls)
 {
-	struct tupfile *tf = lua_touserdata(ls, lua_upvalueindex(1));
+	struct tupfile *tf = top_tupfile();
 	struct rule r;
 	struct path_list_head input_path_list;
-	struct path_list_head extra_input_path_list;
 	struct name_list return_nl;
 	struct name_list_entry *nle;
 	size_t command_len = 0;
@@ -233,14 +233,13 @@ static int tuplua_function_definerule(lua_State *ls)
 		return luaL_error(ls, "This function must be passed a table containing parameters");
 
 	TAILQ_INIT(&input_path_list);
-	TAILQ_INIT(&extra_input_path_list);
-	if(tuplua_table_to_path_list(ls, "inputs", tf, &input_path_list, DISALLOW_NODES) < 0)
+	if(tuplua_table_to_path_list(ls, "inputs", tf, &input_path_list, EXPAND_NODES_SRC) < 0)
 		return luaL_error(ls, "Error while parsing 'inputs'.");
-	if(tuplua_table_to_path_list(ls, "extra_inputs", tf, &extra_input_path_list, DISALLOW_NODES) < 0)
+	if(tuplua_table_to_path_list(ls, "extra_inputs", tf, &r.order_only_input_paths, EXPAND_NODES_SRC) < 0)
 		return luaL_error(ls, "Error while parsing 'extra_inputs'.");
-	if(tuplua_table_to_path_list(ls, "outputs", tf, &r.outputs, ALLOW_NODES) < 0)
+	if(tuplua_table_to_path_list(ls, "outputs", tf, &r.outputs, EXPAND_NODES_SRC) < 0)
 		return luaL_error(ls, "Error while parsing 'outputs'.");
-	if(tuplua_table_to_path_list(ls, "extra_outputs", tf, &r.extra_outputs, ALLOW_NODES) < 0)
+	if(tuplua_table_to_path_list(ls, "extra_outputs", tf, &r.extra_outputs, EXPAND_NODES_SRC) < 0)
 		return luaL_error(ls, "Error while parsing 'extra_outputs'.");
 
 	lua_getfield(ls, 1, "bin");
@@ -262,10 +261,6 @@ static int tuplua_function_definerule(lua_State *ls)
 		return luaL_error(ls, "Error while parsing dependent Tupfiles");
 	if(get_name_list(tf, &input_path_list, &r.inputs, is_variant_copy) < 0)
 		return luaL_error(ls, "Error parsing input list");
-	if(parse_dependent_tupfiles(&extra_input_path_list, tf) < 0)
-		return luaL_error(ls, "Error while parsing dependent Tupfiles");
-	if(get_name_list(tf, &extra_input_path_list, &r.order_only_inputs, 0) < 0)
-		return luaL_error(ls, "Error parsing extra input list");
 
 	if(TAILQ_EMPTY(&input_path_list))
 		r.empty_input = 1;
@@ -277,7 +272,6 @@ static int tuplua_function_definerule(lua_State *ls)
 		return luaL_error(ls, "Failed to execute rule.");
 
 	free_path_list(&input_path_list);
-	free_path_list(&extra_input_path_list);
 
 	lua_newtable(ls);
 	TAILQ_FOREACH(nle, &return_nl.entries, list) {
@@ -291,10 +285,10 @@ static int tuplua_function_definerule(lua_State *ls)
 		count++;
 		free(e.s);
 	}
+	free_path_list(&r.order_only_input_paths);
 	free_path_list(&r.outputs);
 	free_path_list(&r.extra_outputs);
 	delete_name_list(&return_nl);
-	delete_name_list(&r.order_only_inputs);
 
 	return 1;
 }
@@ -317,7 +311,7 @@ static int tuplua_function_append_table(lua_State *ls)
 
 static int tuplua_function_getcwd(lua_State *ls)
 {
-	struct tupfile *tf = lua_touserdata(ls, lua_upvalueindex(1));
+	struct tupfile *tf = top_tupfile();
 	struct estring e;
 
 	lua_settop(ls, 0);
@@ -339,16 +333,29 @@ static int tuplua_function_getcwd(lua_State *ls)
 
 static int tuplua_function_getvariantdir(lua_State *ls)
 {
-	struct tupfile *tf = lua_touserdata(ls, lua_upvalueindex(1));
+	struct tupfile *tf = top_tupfile();
+
+	lua_settop(ls, 0);
+
+	char value[32];
+	snprintf(value, 31, "%%%llit", tf->curtent->tnode.tupid);
+	value[31] = 0;
+	lua_pushlstring(ls, value, strlen(value));
+	return 1;
+}
+
+static int tuplua_function_getvariantoutputdir(lua_State *ls)
+{
+	struct tupfile *tf = top_tupfile();
 	struct estring e;
 
 	lua_settop(ls, 0);
 
 	estring_init(&e);
-	if(get_relative_dir(NULL, &e, tf->srctent->tnode.tupid, tf->curtent->tnode.tupid) < 0) {
-		fprintf(tf->f, "tup internal error: Unable to find relative directory from ID %lli -> %lli\n", tf->srctent->tnode.tupid, tf->curtent->tnode.tupid);
+	if(get_relative_dir(NULL, &e, tf->srctent->tnode.tupid, tf->tent->tnode.tupid) < 0) {
+		fprintf(tf->f, "tup internal error: Unable to find relative directory from ID %lli -> %lli\n", tf->srctent->tnode.tupid, tf->tent->tnode.tupid);
 		tup_db_print(tf->f, tf->srctent->tnode.tupid);
-		tup_db_print(tf->f, tf->curtent->tnode.tupid);
+		tup_db_print(tf->f, tf->tent->tnode.tupid);
 		return luaL_error(ls, "Failed to get directory path length in getcwd.");
 	}
 
@@ -359,7 +366,7 @@ static int tuplua_function_getvariantdir(lua_State *ls)
 
 static int tuplua_function_getdirectory(lua_State *ls)
 {
-	struct tupfile *tf = lua_touserdata(ls, lua_upvalueindex(1));
+	struct tupfile *tf = top_tupfile();
 
 	if(tf->tent->tnode.tupid == DOT_DT) {
 		/* At the top of the tup-hierarchy, we get the
@@ -389,7 +396,7 @@ static int tuplua_function_getdirectory(lua_State *ls)
 
 static int tuplua_function_getrelativedir(lua_State *ls)
 {
-	struct tupfile *tf = lua_touserdata(ls, lua_upvalueindex(1));
+	struct tupfile *tf = top_tupfile();
 	const char *dirname;
 	tupid_t dest;
 	struct estring e;
@@ -412,7 +419,7 @@ static int tuplua_function_getrelativedir(lua_State *ls)
 
 static int tuplua_function_getconfig(lua_State *ls)
 {
-	struct tupfile *tf = lua_touserdata(ls, lua_upvalueindex(1));
+	struct tupfile *tf = top_tupfile();
 	const char *name = NULL;
 	size_t name_size = 0;
 	struct tup_entry *tent = NULL;
@@ -466,7 +473,7 @@ static int tuplua_glob_callback(void *arg, struct tup_entry *tent)
 
 static int tuplua_function_glob(lua_State *ls)
 {
-	struct tupfile *tf = lua_touserdata(ls, lua_upvalueindex(1));
+	struct tupfile *tf = top_tupfile();
 	const char *pattern = NULL;
 	struct path_list_head plist;
 	struct path_list *pl;
@@ -542,7 +549,7 @@ static int tuplua_function_glob(lua_State *ls)
 
 static int tuplua_function_export(lua_State *ls)
 {
-	struct tupfile *tf = lua_touserdata(ls, lua_upvalueindex(1));
+	struct tupfile *tf = top_tupfile();
 	const char *name = NULL;
 
 	name = tuplua_tostring(ls, -1);
@@ -555,16 +562,39 @@ static int tuplua_function_export(lua_State *ls)
 	return 0;
 }
 
+static int tuplua_function_import(lua_State *ls)
+{
+	struct tupfile *tf = top_tupfile();
+	const char *name = NULL;
+	const char *var = NULL;
+	const char *val = NULL;
+
+	name = tuplua_tostring(ls, -1);
+	if(name == NULL)
+		return luaL_error(ls, "Must be passed an environment variable name as an argument.");
+
+	if(import(tf, name, &var, &val) < 0)
+		return luaL_error(ls, "Failed to import environment variable '%s'.", name);
+	if(val) {
+		lua_pushstring(ls, val);
+	} else {
+		lua_pushnil(ls);
+	}
+	lua_setglobal(ls, var);
+	return 0;
+}
+
 static int tuplua_function_creategitignore(lua_State *ls)
 {
-	struct tupfile *tf = lua_touserdata(ls, lua_upvalueindex(1));
+	if(ls) {/* unused */}
+	struct tupfile *tf = top_tupfile();
 	tf->ign = 1;
 	return 0;
 }
 
 static int tuplua_function_handle_fileread(lua_State *ls)
 {
-	struct tupfile *tf = lua_touserdata(ls, lua_upvalueindex(1));
+	struct tupfile *tf = top_tupfile();
 	const char *filename;
 	const char *mode;
 
@@ -615,7 +645,7 @@ static int tuplua_function_unchdir(lua_State *ls)
 
 static int tuplua_function_run(lua_State *ls)
 {
-	struct tupfile *tf = lua_touserdata(ls, lua_upvalueindex(1));
+	struct tupfile *tf = top_tupfile();
 	const char *cmdline;
 
 	cmdline = tuplua_tostring(ls, 1);
@@ -630,7 +660,7 @@ static int tuplua_function_run(lua_State *ls)
 
 static int tuplua_function_nodevariable(lua_State *ls)
 {
-	struct tupfile *tf = lua_touserdata(ls, lua_upvalueindex(1));
+	struct tupfile *tf = top_tupfile();
 
 	lua_settop(ls, 1);
 
@@ -661,7 +691,7 @@ static int tuplua_function_nodevariable(lua_State *ls)
 	// TODO To guard from users confusing userdata items, allocate extra space and add a type identifier at the beginning (plus a magic number?).
 	void *stackid = lua_newuserdata(ls, sizeof(tent->tnode.tupid));
 	memcpy(stackid, &tent->tnode.tupid, sizeof(tent->tnode.tupid));
-	lua_pushvalue(ls, lua_upvalueindex(2));
+	lua_pushvalue(ls, lua_upvalueindex(1));
 	lua_setmetatable(ls, 1);
 
 	return 1;
@@ -669,7 +699,7 @@ static int tuplua_function_nodevariable(lua_State *ls)
 
 static int tuplua_function_nodevariable_tostring(lua_State *ls)
 {
-	struct tupfile *tf = lua_touserdata(ls, lua_upvalueindex(1));
+	struct tupfile *tf = top_tupfile();
 	int rc = -1;
 	void *stackid;
 	tupid_t tid;
@@ -714,233 +744,236 @@ static int tuplua_function_concat(struct lua_State *ls)
 	return 1;
 }
 
-static void set_vardb(struct tupfile *tf, struct lua_State *ls)
+int tup_lua_parser_new_state(void)
 {
-	struct string_tree *st;
+	gls = luaL_newstate();
 
-	RB_FOREACH(st, string_entries, &tf->vdb.root) {
-		struct var_entry *ve = container_of(st, struct var_entry, var);
-		const char *value = ve->value;
-		const char *space;
-		int idx = 1;
+	/* Register tup interaction functions in the "tup" table in Lua */
+	lua_newtable(gls);
+	tuplua_register_function(gls, "include", tuplua_function_include);
+	tuplua_register_function(gls, "definerule", tuplua_function_definerule);
+	tuplua_register_function(gls, "append_table", tuplua_function_append_table);
+	tuplua_register_function(gls, "getcwd", tuplua_function_getcwd);
+	tuplua_register_function(gls, "getvariantdir", tuplua_function_getvariantdir);
+	tuplua_register_function(gls, "getvariantoutputdir", tuplua_function_getvariantoutputdir);
+	tuplua_register_function(gls, "getdirectory", tuplua_function_getdirectory);
+	tuplua_register_function(gls, "getrelativedir", tuplua_function_getrelativedir);
+	tuplua_register_function(gls, "getconfig", tuplua_function_getconfig);
+	tuplua_register_function(gls, "glob", tuplua_function_glob);
+	tuplua_register_function(gls, "export", tuplua_function_export);
+	tuplua_register_function(gls, "import", tuplua_function_import);
+	tuplua_register_function(gls, "creategitignore", tuplua_function_creategitignore);
+	tuplua_register_function(gls, "handle_fileread", tuplua_function_handle_fileread);
+	tuplua_register_function(gls, "unchdir", tuplua_function_unchdir);
+	tuplua_register_function(gls, "run", tuplua_function_run);
 
-		lua_newtable(ls);
-		do {
-			space = strchr(value, ' ');
-			if(space) {
-				lua_pushlstring(ls, value, space - value);
-			} else {
-				lua_pushstring(ls, value);
-			}
-			lua_rawseti(ls, -2, idx);
-			idx++;
-			if(space) {
-				while(*space && isspace(*space))
-					space++;
-			}
-			value = space;
-		} while(space != NULL);
-		lua_setglobal(ls, st->s);
-	}
-}
+	lua_newtable(gls);
+	lua_pushcfunction(gls, tuplua_function_nodevariable_tostring);
+	lua_setfield(gls, -2, "__tostring");
+	lua_pushcfunction(gls, tuplua_function_concat);
+	lua_setfield(gls, -2, "__concat");
+	lua_pushcclosure(gls, tuplua_function_nodevariable, 1);
+	lua_setfield(gls, 1, "nodevariable");
 
-static char *lua_vardb(void *arg, const char *var, int varlen)
-{
-	struct lua_State *ls = arg;
-	char buf[PATH_MAX];
-	char *value;
-	if(varlen+1 >= PATH_MAX) {
-		fprintf(stderr, "tup error: Varname too long (%i bytes)\n", varlen);
-		return NULL;
-	}
-	strncpy(buf, var, varlen);
-	buf[varlen] = 0;
-	lua_getglobal(ls, buf);
-	if(lua_istable(ls, -1)) {
-		value = tuplua_table_tostring(ls);
-	} else {
-		value = tuplua_strdup(ls, -1);
-	}
-	lua_pop(ls, 1);
-	return value;
-}
+	lua_setglobal(gls, "tup");
 
-static int initial_luadb(struct lua_State *ls, struct string_entries *root)
-{
-	lua_pushglobaltable(ls);
-	lua_pushnil(ls);
-	while(lua_next(ls, -2) != 0) {
-		const char *name = lua_tostring(ls, -2);
-		struct string_tree *st;
-		st = malloc(sizeof *st);
-		if(string_tree_add(root, st, name) < 0)
-			return -1;
-		lua_pop(ls, 1);
+	/* Load some basic libraries.  Load the debug library so
+	 * tracebacks for errors can be formatted nicely
+	 */
+	luaL_requiref(gls, "_G", luaopen_base, 1); lua_pop(gls, 1);
+	luaL_requiref(gls, LUA_TABLIBNAME, luaopen_table, 1); lua_pop(gls, 1);
+	luaL_requiref(gls, LUA_STRLIBNAME, luaopen_string, 1); lua_pop(gls, 1);
+	luaL_requiref(gls, LUA_MATHLIBNAME, luaopen_math, 1); lua_pop(gls, 1);
+	luaL_requiref(gls, LUA_DBLIBNAME, luaopen_debug, 1); lua_pop(gls, 1);
+	luaL_requiref(gls, LUA_IOLIBNAME, luaopen_io, 1); lua_pop(gls, 1);
+	luaL_requiref(gls, LUA_UTF8LIBNAME, luaopen_utf8, 1); lua_pop(gls, 1);
+	lua_pushnil(gls); lua_setglobal(gls, "dofile");
+	lua_pushnil(gls); lua_setglobal(gls, "loadfile");
+	lua_pushnil(gls); lua_setglobal(gls, "load");
+	lua_pushnil(gls); lua_setglobal(gls, "require");
+
+	/* Load lua built-in lua helper functions from luabuiltin.h */
+	lua_getglobal(gls, "debug");
+	lua_getfield(gls, -1, "traceback");
+	lua_setfield(gls, LUA_REGISTRYINDEX, "tup_traceback");
+	lua_pop(gls, 1);
+	lua_getfield(gls, LUA_REGISTRYINDEX, "tup_traceback");
+	if(luaL_loadbuffer(gls, (char *)builtin_lua, builtin_lua_len, "builtin") != LUA_OK) {
+		fprintf(stderr, "tup error: Failed to open builtins:\n%s\n", tuplua_tostring(gls, -1));
+		lua_close(gls);
+		return -1;
 	}
-	lua_pop(ls, 1);
+	if(lua_pcall(gls, 0, 0, 1) != LUA_OK) {
+		fprintf(stderr, "tup error: Failed to parse builtins:\n%s\n", tuplua_tostring(gls, -1));
+		lua_close(gls);
+		return -1;
+	}
+	lua_pop(gls, 1);
+
 	return 0;
 }
 
-static int add_vardb(struct tupfile *tf, struct lua_State *ls, struct string_entries *root)
+int parse_lua_include_rules(struct tupfile *tf)
 {
-	lua_pushglobaltable(ls);
-	lua_pushnil(ls);
-	while(lua_next(ls, -2) != 0) {
-		const char *name = lua_tostring(ls, -2);
-		if(string_tree_search(root, name, strlen(name)) == NULL) {
-			char *value;
-			if(lua_istable(ls, -1)) {
-				value = tuplua_table_tostring(ls);
-			} else {
-				value = tuplua_strdup(ls, -1);
-			}
-			if(vardb_set(&tf->vdb, name, value, NULL) < 0)
-				return -1;
-			free(value);
+	if(parser_include_rules(tf, "Tuprules.lua") < 0) {
+		if(tf->luaerror == TUPLUA_PENDINGERROR) {
+			assert(lua_gettop(gls) == 2);
+			fprintf(tf->f, "tup error %s\n", tuplua_tostring(gls, -1));
+			lua_pop(gls, 1);
+			tf->luaerror = TUPLUA_ERRORSHOWN;
 		}
-		lua_pop(ls, 1);
+		return -1;
 	}
-	lua_pop(ls, 1);
 	return 0;
 }
 
 int parse_lua_tupfile(struct tupfile *tf, struct buf *b, const char *name)
 {
-	struct tuplua_reader_data lrd;
-	struct lua_State *ls = NULL;
-	struct string_entries vars = {NULL};
+	struct tuplua_reader_data lrd = {b, 0};
 
-	lrd.read = 0;
-	lrd.b = b;
+	lua_getfield(gls, LUA_REGISTRYINDEX, "tup_traceback");
 
-	if(!tf->ls) {
-		ls = luaL_newstate();
-		luaL_setoutput(ls, tf->f);
-		tf->ls = ls;
-
-		tf->vdb.external_vardb = lua_vardb;
-		tf->vdb.external_arg = ls;
-
-		/* Register tup interaction functions in the "tup" table in Lua */
-		lua_newtable(ls);
-		tuplua_register_function(ls, "include", tuplua_function_include, tf);
-		tuplua_register_function(ls, "definerule", tuplua_function_definerule, tf);
-		tuplua_register_function(ls, "append_table", tuplua_function_append_table, tf);
-		tuplua_register_function(ls, "getcwd", tuplua_function_getcwd, tf);
-		tuplua_register_function(ls, "getvariantdir", tuplua_function_getvariantdir, tf);
-		tuplua_register_function(ls, "getdirectory", tuplua_function_getdirectory, tf);
-		tuplua_register_function(ls, "getrelativedir", tuplua_function_getrelativedir, tf);
-		tuplua_register_function(ls, "getconfig", tuplua_function_getconfig, tf);
-		tuplua_register_function(ls, "glob", tuplua_function_glob, tf);
-		tuplua_register_function(ls, "export", tuplua_function_export, tf);
-		tuplua_register_function(ls, "creategitignore", tuplua_function_creategitignore, tf);
-		tuplua_register_function(ls, "handle_fileread", tuplua_function_handle_fileread, tf);
-		tuplua_register_function(ls, "unchdir", tuplua_function_unchdir, tf);
-		tuplua_register_function(ls, "run", tuplua_function_run, tf);
-
-		lua_pushlightuserdata(ls, tf);
-		lua_newtable(ls);
-		lua_pushlightuserdata(ls, tf);
-		lua_pushcclosure(ls, tuplua_function_nodevariable_tostring, 1);
-		lua_setfield(ls, -2, "__tostring");
-		lua_pushlightuserdata(ls, tf);
-		lua_pushcclosure(ls, tuplua_function_concat, 1);
-		lua_setfield(ls, -2, "__concat");
-		lua_pushcclosure(ls, tuplua_function_nodevariable, 2);
-		lua_setfield(ls, 1, "nodevariable");
-
-		lua_setglobal(ls, "tup");
-
-		/* Load some basic libraries.  Load the debug library so
-		 * tracebacks for errors can be formatted nicely
-		 */
-		luaL_requiref(ls, "_G", luaopen_base, 1); lua_pop(ls, 1);
-		luaL_requiref(ls, LUA_TABLIBNAME, luaopen_table, 1); lua_pop(ls, 1);
-		luaL_requiref(ls, LUA_STRLIBNAME, luaopen_string, 1); lua_pop(ls, 1);
-		luaL_requiref(ls, LUA_MATHLIBNAME, luaopen_math, 1); lua_pop(ls, 1);
-		luaL_requiref(ls, LUA_DBLIBNAME, luaopen_debug, 1); lua_pop(ls, 1);
-		luaL_requiref(ls, LUA_IOLIBNAME, luaopen_io, 1); lua_pop(ls, 1);
-		luaL_requiref(ls, LUA_UTF8LIBNAME, luaopen_utf8, 1); lua_pop(ls, 1);
-		lua_pushnil(ls); lua_setglobal(ls, "dofile");
-		lua_pushnil(ls); lua_setglobal(ls, "loadfile");
-		lua_pushnil(ls); lua_setglobal(ls, "load");
-		lua_pushnil(ls); lua_setglobal(ls, "require");
-
-		/* Load lua built-in lua helper functions from luabuiltin.h */
-		lua_getglobal(ls, "debug");
-		lua_getfield(ls, -1, "traceback");
-		lua_setfield(ls, LUA_REGISTRYINDEX, "tup_traceback");
-		lua_pop(ls, 1);
-		lua_getfield(ls, LUA_REGISTRYINDEX, "tup_traceback");
-		if(luaL_loadbuffer(ls, (char *)builtin_lua, builtin_lua_len, "builtin") != LUA_OK) {
-			fprintf(tf->f, "tup error: Failed to open builtins:\n%s\n", tuplua_tostring(ls, -1));
-			lua_close(ls);
-			tf->ls = NULL;
-			return -1;
-		}
-		if(lua_pcall(ls, 0, 0, 1) != LUA_OK) {
-			fprintf(tf->f, "tup error: Failed to parse builtins:\n%s\n", tuplua_tostring(ls, -1));
-			lua_close(ls);
-			tf->ls = NULL;
-			return -1;
-		}
-		lua_pop(ls, 1);
-
-
-		if(initial_luadb(ls, &vars) < 0)
-			return -1;
-		set_vardb(tf, ls);
-		if(parser_include_rules(tf, "Tuprules.lua") < 0) {
-			if(tf->luaerror == TUPLUA_PENDINGERROR) {
-				assert(lua_gettop(ls) == 2);
-				fprintf(tf->f, "tup error %s\n", tuplua_tostring(ls, -1));
-				lua_pop(ls, 1);
-				tf->luaerror = TUPLUA_ERRORSHOWN;
-			}
-			return -1;
-		}
-		assert(lua_gettop(ls) == 0);
-	}
-	else ls = tf->ls;
-	assert(lua_gettop(ls) == 0);
-
-	lua_getfield(ls, LUA_REGISTRYINDEX, "tup_traceback");
-
-	if(lua_load(ls, &tuplua_reader, &lrd, name, 0) != LUA_OK) {
-		fprintf(tf->f, "tup error %s\n", tuplua_tostring(ls, -1));
+	if(lua_load(gls, &tuplua_reader, &lrd, name, 0) != LUA_OK) {
+		fprintf(tf->f, "tup error %s\n", tuplua_tostring(gls, -1));
 		tf->luaerror = TUPLUA_PENDINGERROR;
-		assert(lua_gettop(ls) == 2);
+		assert(lua_gettop(gls) == 2);
 		return -1;
 	}
 
-	if(lua_pcall(ls, 0, 0, 1) != LUA_OK) {
+	/* Override _ENV to use our per-Tupfile global variable sandboxing. */
+	lua_getglobal(gls, "tup_environ");
+	lua_setupvalue(gls, -2, 1);
+
+	if(lua_pcall(gls, 0, 0, 1) != LUA_OK) {
 		if(tf->luaerror != TUPLUA_ERRORSHOWN)
-			fprintf(tf->f, "tup error %s\n", tuplua_tostring(ls, -1));
+			fprintf(tf->f, "tup error %s\n", tuplua_tostring(gls, -1));
 		tf->luaerror = TUPLUA_ERRORSHOWN;
-		lua_pop(ls, 2);
-		assert(lua_gettop(ls) == 0);
+		lua_pop(gls, 2);
+		assert(lua_gettop(gls) == 0);
 		return -1;
 	}
 
-	lua_pop(ls, 1);
-	if(add_vardb(tf, ls, &vars) < 0)
-		return -1;
-	tf->vdb.external_vardb = NULL;
-	tf->vdb.external_arg = NULL;
-	free_string_tree(&vars);
-	assert(lua_gettop(ls) == 0);
+	lua_pop(gls, 1);
 	return 0;
 }
 
-void lua_parser_cleanup(struct tupfile *tf)
+void tup_lua_parser_cleanup(void)
 {
-	if(tf->ls)
-		lua_close(tf->ls);
+	if(gls)
+		lua_close(gls);
 }
 
 void lua_parser_debug_run(void)
 {
 	debug_run = 1;
+}
+
+void push_tupfile(struct tupfile *tf)
+{
+	SLIST_INSERT_HEAD(&tupfile_list, tf, list);
+	luaL_setoutput(gls, tf->f);
+	lua_getglobal(gls, "tup_push_state");
+	lua_call(gls, 0, 0);
+}
+
+void pop_tupfile(void)
+{
+	SLIST_REMOVE_HEAD(&tupfile_list, list);
+	struct tupfile *tf = top_tupfile();
+	if(tf) {
+		luaL_setoutput(gls, tf->f);
+	} else {
+		luaL_setoutput(gls, stderr);
+	}
+	lua_getglobal(gls, "tup_pop_state");
+	lua_call(gls, 0, 0);
+}
+
+static struct tupfile *top_tupfile(void)
+{
+	return SLIST_FIRST(&tupfile_list);
+}
+
+static void tup_string_to_lua(const char *value)
+{
+	/* Convert a tup space-separated string into a table with multiple
+	 * values. The resulting table is left on the stack.
+	 */
+	const char *space;
+	int idx = 1;
+
+	if(!value) {
+		lua_pushnil(gls);
+		return;
+	}
+	lua_newtable(gls);
+	lua_getglobal(gls, "tup_table_meta");
+	lua_setmetatable(gls, -2);
+	do {
+		space = strchr(value, ' ');
+		if(space) {
+			lua_pushlstring(gls, value, space - value);
+		} else {
+			lua_pushstring(gls, value);
+		}
+		lua_rawseti(gls, -2, idx);
+		idx++;
+		if(space) {
+			while(*space && isspace(*space))
+				space++;
+		}
+		value = space;
+	} while(space != NULL);
+}
+
+int luadb_set(const char *var, const char *value)
+{
+	lua_getglobal(gls, "tup_set_var");
+	lua_pushstring(gls, var);
+	tup_string_to_lua(value);
+	lua_call(gls, 2, 0);
+	return 0;
+}
+
+int luadb_append(const char *var, const char *value)
+{
+	lua_getglobal(gls, "tup_set_var");
+	lua_pushstring(gls, var);
+	lua_getglobal(gls, "tup_append_assignment");
+	lua_getglobal(gls, "tup_get_var");
+	lua_pushstring(gls, var);
+	lua_call(gls, 1, 1);
+	tup_string_to_lua(value);
+	lua_call(gls, 2, 1);
+	lua_call(gls, 2, 0);
+	return 0;
+}
+
+int luadb_copy(const char *var, int varlen, struct estring *e)
+{
+	char buf[PATH_MAX];
+	char *value;
+	if(varlen+1 >= PATH_MAX) {
+		fprintf(stderr, "tup error: Varname too long (%i bytes)\n", varlen);
+		return -1;
+	}
+	strncpy(buf, var, varlen);
+	buf[varlen] = 0;
+	lua_getglobal(gls, "tup_get_var");
+	lua_pushstring(gls, buf);
+	lua_call(gls, 1, 1);
+	if(lua_istable(gls, -1)) {
+		value = tuplua_table_tostring(gls);
+	} else {
+		value = tuplua_strdup(gls, -1);
+	}
+	lua_pop(gls, 1);
+	if(value) {
+		if(estring_append(e, value, strlen(value)) < 0)
+			return -1;
+		free(value);
+	}
+	return 0;
 }
 
 static int get_path_list(struct tupfile *tf, const char *p, struct path_list_head *plist, int orderid)

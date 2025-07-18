@@ -1,7 +1,7 @@
 #! /bin/sh -e
 # tup - A file-based build system
 #
-# Copyright (C) 2009-2021  Mike Shal <marfey@gmail.com>
+# Copyright (C) 2009-2024  Mike Shal <marfey@gmail.com>
 #
 # This program is free software; you can redistribute it and/or modify
 # it under the terms of the GNU General Public License version 2 as
@@ -25,7 +25,7 @@ cat > Tupfile << HERE
 : foreach input/*.o |> cat %f > %o |> %b
 HERE
 
-tmkdir input
+mkdir input
 cat > input/Tupfile << HERE
 : foreach *.c |> gcc -c %f -o %o |> %B.o
 HERE
@@ -33,7 +33,6 @@ HERE
 echo "void foo(void) {}" > input/foo.c
 echo "void bar(void) {}" > input/bar.c
 
-tup touch Tupfile input/Tupfile input/foo.c input/bar.c
 update
 
 eotup

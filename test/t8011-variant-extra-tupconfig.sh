@@ -1,7 +1,7 @@
 #! /bin/sh -e
 # tup - A file-based build system
 #
-# Copyright (C) 2012-2021  Mike Shal <marfey@gmail.com>
+# Copyright (C) 2012-2024  Mike Shal <marfey@gmail.com>
 #
 # This program is free software; you can redistribute it and/or modify
 # it under the terms of the GNU General Public License version 2 as
@@ -16,26 +16,29 @@
 # with this program; if not, write to the Free Software Foundation, Inc.,
 # 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
 
-# Make sure a tup.config not at a top-level doesn't create a new variant.
+# Make sure a tup.config not at the top-level creates a new variant.
 . ./tup.sh
 
-tmkdir build
-tmkdir build2
-tmkdir build2/debug
+mkdir build
+mkdir build2
+mkdir build2/debug
 
 echo "" > build/tup.config
 echo "CONFIG_DEBUG=y" > build2/debug/tup.config
 
-tmkdir sub
+mkdir sub
 cat > sub/Tupfile << HERE
 ifeq (@(DEBUG),y)
 : foo.c |> cp %f %o |> foo
 endif
 : foo.c |> cp %f %o |> bar
 HERE
-tup touch build/tup.config build2/debug/tup.config sub/Tupfile sub/foo.c
+touch sub/foo.c
 update
 
-check_not_exist build2/debug/sub
+check_not_exist build/sub/foo
+check_exist build/sub/bar
+check_exist build2/debug/sub/foo
+check_exist build2/debug/sub/bar
 
 eotup

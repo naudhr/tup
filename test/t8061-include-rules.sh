@@ -1,7 +1,7 @@
 #! /bin/sh -e
 # tup - A file-based build system
 #
-# Copyright (C) 2012-2021  Mike Shal <marfey@gmail.com>
+# Copyright (C) 2012-2024  Mike Shal <marfey@gmail.com>
 #
 # This program is free software; you can redistribute it and/or modify
 # it under the terms of the GNU General Public License version 2 as
@@ -18,11 +18,10 @@
 
 # Use include_rules in a variant Tupfile
 . ./tup.sh
-check_no_windows tup variant
 
-tmkdir sub
-tmkdir sub/sub2
-tmkdir configs
+mkdir sub
+mkdir sub/sub2
+mkdir configs
 
 cat > Tuprules.tup << HERE
 var += y
@@ -45,7 +44,6 @@ HERE
 echo "CONFIG_DEBUG=y" > configs/debug.config
 echo "" > configs/default.config
 tup variant configs/*.config
-tup touch Tupfile
 update
 
 check_exist build-default/sub/sub2/bar
@@ -58,7 +56,6 @@ check_not_exist build-debug/sub/sub2/baz
 cat > Tuprules.tup << HERE
 var += n
 HERE
-tup touch Tuprules.tup
 update
 
 check_not_exist build-default/sub/sub2/bar

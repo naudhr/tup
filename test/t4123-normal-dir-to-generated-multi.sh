@@ -1,7 +1,7 @@
 #! /bin/sh -e
 # tup - A file-based build system
 #
-# Copyright (C) 2013-2021  Mike Shal <marfey@gmail.com>
+# Copyright (C) 2013-2024  Mike Shal <marfey@gmail.com>
 #
 # This program is free software; you can redistribute it and/or modify
 # it under the terms of the GNU General Public License version 2 as
@@ -20,14 +20,14 @@
 
 . ./tup.sh
 
-tmkdir foo
-tmkdir foo/bar
-tmkdir foo/bar/baz
+mkdir foo
+mkdir foo/bar
+mkdir foo/bar/baz
 cat > Tupfile << HERE
 .gitignore
 : |> touch %o |> foo/bar/baz/gen.txt
 HERE
-tup touch foo/bar/baz/ok.txt
+touch foo/bar/baz/ok.txt
 update
 
 gitignore_bad foo .gitignore

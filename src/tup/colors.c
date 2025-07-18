@@ -2,7 +2,7 @@
  *
  * tup - A file-based build system
  *
- * Copyright (C) 2011-2021  Mike Shal <marfey@gmail.com>
+ * Copyright (C) 2011-2024  Mike Shal <marfey@gmail.com>
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 as
@@ -58,6 +58,12 @@ void color_init(void)
 		else
 			enabled[COLOR_STDERR] = 0;
 	}
+}
+
+void color_disable(void)
+{
+	enabled[COLOR_STDOUT] = 0;
+	enabled[COLOR_STDERR] = 0;
 }
 
 void color_set(FILE *f)

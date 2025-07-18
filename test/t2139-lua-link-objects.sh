@@ -1,7 +1,7 @@
 #! /bin/sh -e
 # tup - A file-based build system
 #
-# Copyright (C) 2013-2021  Mike Shal <marfey@gmail.com>
+# Copyright (C) 2013-2024  Mike Shal <marfey@gmail.com>
 #
 # This program is free software; you can redistribute it and/or modify
 # it under the terms of the GNU General Public License version 2 as
@@ -16,7 +16,7 @@
 # with this program; if not, write to the Free Software Foundation, Inc.,
 # 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
 
-# Since *.o isn't 'tup touched', we have to get them from the output of the
+# Since *.o isn't 'touched', we have to get them from the output of the
 # first rule.
 
 . ./tup.sh
@@ -24,7 +24,7 @@ cat > Tupfile.lua << HERE
 objs = tup.foreach_rule('*.c', 'gcc -c %f -o %o', '%B.o')
 tup.rule(objs, 'gcc -o %o %f', {'prog'})
 HERE
-tup touch foo.c bar.c Tupfile.lua
+touch foo.c bar.c
 parse
 tup_object_exist . foo.c bar.c
 tup_object_exist . "gcc -c foo.c -o foo.o"

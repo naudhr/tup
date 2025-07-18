@@ -1,7 +1,7 @@
 #! /bin/sh -e
 # tup - A file-based build system
 #
-# Copyright (C) 2018-2021  Mike Shal <marfey@gmail.com>
+# Copyright (C) 2018-2024  Mike Shal <marfey@gmail.com>
 #
 # This program is free software; you can redistribute it and/or modify
 # it under the terms of the GNU General Public License version 2 as
@@ -50,7 +50,6 @@ cat > Tupfile << HERE
 : |> sh run.sh foo > %o |> out.txt
 : out.txt |> sh run.sh bar |>
 HERE
-tup touch Tupfile
 config 3 1
 update_fail_msg "1 job failed" "Remaining nodes skipped due to errors in command execution"
 

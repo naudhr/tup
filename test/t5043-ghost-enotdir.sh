@@ -1,7 +1,7 @@
 #! /bin/sh -e
 # tup - A file-based build system
 #
-# Copyright (C) 2009-2021  Mike Shal <marfey@gmail.com>
+# Copyright (C) 2009-2024  Mike Shal <marfey@gmail.com>
 #
 # This program is free software; you can redistribute it and/or modify
 # it under the terms of the GNU General Public License version 2 as
@@ -28,15 +28,13 @@ chmod +x ok.sh
 cat > Tupfile << HERE
 : |> ./ok.sh > %o |> output.txt
 HERE
-tup touch secret Tupfile
+touch secret
 update
 echo nofile | diff - output.txt
 
 rm secret
-tup rm secret
-tmkdir secret
+mkdir secret
 echo 'boo' > secret/ghost
-tup touch secret/ghost
 update
 
 echo boo | diff - output.txt

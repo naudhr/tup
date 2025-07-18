@@ -1,7 +1,7 @@
 #! /bin/sh -e
 # tup - A file-based build system
 #
-# Copyright (C) 2009-2021  Mike Shal <marfey@gmail.com>
+# Copyright (C) 2009-2024  Mike Shal <marfey@gmail.com>
 #
 # This program is free software; you can redistribute it and/or modify
 # it under the terms of the GNU General Public License version 2 as
@@ -25,22 +25,20 @@
 . ./tup.sh
 
 # Need to make sure C runs first when it comes up (seems to go in order of ID)
-tmkdir C
+mkdir C
 cat > C/Tupfile << HERE
 HERE
-tup touch C/Tupfile
 
-tmkdir A
+mkdir A
 cat > A/Tupfile << HERE
 : |> echo hey > %o |> foo.txt
 HERE
 
-tmkdir B
+mkdir B
 cat > B/Tupfile << HERE
 : foreach ../A/*.txt |> cp %f %o |> %b
 HERE
 
-tup touch A/Tupfile B/Tupfile
 update
 check_exist A/foo.txt B/foo.txt
 
@@ -51,8 +49,6 @@ cat > A/Tupfile << HERE
 : |> echo hey > %o |> foo.txt
 : |> echo yo > %o |> bar.txt
 HERE
-tup touch C/Tupfile
-tup touch A/Tupfile
 update
 check_exist A/foo.txt A/bar.txt B/foo.txt B/bar.txt C/foo.txt C/bar.txt
 

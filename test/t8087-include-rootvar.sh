@@ -1,7 +1,7 @@
 #! /bin/sh -e
 # tup - A file-based build system
 #
-# Copyright (C) 2013-2021  Mike Shal <marfey@gmail.com>
+# Copyright (C) 2013-2024  Mike Shal <marfey@gmail.com>
 #
 # This program is free software; you can redistribute it and/or modify
 # it under the terms of the GNU General Public License version 2 as
@@ -19,20 +19,20 @@
 # Try to use a _ROOT variable to include a file
 . ./tup.sh
 
-tmkdir build
+mkdir build
 
 cat > Tuprules.tup << HERE
 GITTUP_ROOT = \$(TUP_CWD)
 HERE
 
-tmkdir sub
+mkdir sub
 cat > sub/Tupfile << HERE
 include_rules
 include \$(GITTUP_ROOT)/lib/lib.tup
 : |> echo \$(CFLAGS) |>
 HERE
 
-tmkdir lib
+mkdir lib
 cat > lib/lib.tup << HERE
 CFLAGS += -I\$(TUP_CWD)
 CFLAGS += -I\$(TUP_VARIANTDIR)

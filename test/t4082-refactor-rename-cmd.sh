@@ -1,7 +1,7 @@
 #! /bin/sh -e
 # tup - A file-based build system
 #
-# Copyright (C) 2013-2021  Mike Shal <marfey@gmail.com>
+# Copyright (C) 2013-2024  Mike Shal <marfey@gmail.com>
 #
 # This program is free software; you can redistribute it and/or modify
 # it under the terms of the GNU General Public License version 2 as
@@ -23,12 +23,8 @@
 cat > Tupfile << HERE
 : |> touch foo |> foo
 HERE
-tup touch Tupfile
 update
 
-# Sleep 1 here so that we update the mtime in a transaction prior to
-# parsing.
-sleep 1
 cat > Tupfile << HERE
 string = foo
 : |> touch \$(string) |> foo
@@ -39,7 +35,6 @@ cat > Tupfile << HERE
 string = foo
 : |> touch  \$(string) |> foo
 HERE
-tup touch Tupfile
 refactor_fail_msg "Attempting to modify a command string:"
 refactor_fail_msg "Old: 'touch foo'"
 refactor_fail_msg "New: 'touch  foo'"

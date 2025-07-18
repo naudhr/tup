@@ -1,7 +1,7 @@
 #! /bin/sh -e
 # tup - A file-based build system
 #
-# Copyright (C) 2009-2021  Mike Shal <marfey@gmail.com>
+# Copyright (C) 2009-2024  Mike Shal <marfey@gmail.com>
 #
 # This program is free software; you can redistribute it and/or modify
 # it under the terms of the GNU General Public License version 2 as
@@ -19,20 +19,18 @@
 # Make sure we can't sneak in a generated Tuprules.tup file by making it a
 # ghost node first and then generating it later.
 . ./tup.sh
-tmkdir sub
+mkdir sub
 cat > sub/Tupfile << HERE
 include_rules
 CFLAGS += foo
 : |> echo \$(CFLAGS) |>
 HERE
-tup touch sub/Tupfile
 update
 tup_object_exist sub 'echo foo'
 
 cat > Tupfile << HERE
 : |> echo 'CFLAGS += bar' > %o |> Tuprules.tup
 HERE
-tup touch Tupfile
 update_fail
 
 eotup

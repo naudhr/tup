@@ -1,7 +1,7 @@
 #! /bin/sh -e
 # tup - A file-based build system
 #
-# Copyright (C) 2016-2021  Mike Shal <marfey@gmail.com>
+# Copyright (C) 2016-2024  Mike Shal <marfey@gmail.com>
 #
 # This program is free software; you can redistribute it and/or modify
 # it under the terms of the GNU General Public License version 2 as
@@ -23,7 +23,6 @@ check_bash
 cat > Tupfile << HERE
 : |> ^b^ echo \$BASH > %o |> bash.txt
 HERE
-tup touch Tupfile
 update
 
 check_exist bash.txt
@@ -31,7 +30,7 @@ check_exist bash.txt
 # Check that bash is not "empty" i.e. $BASH was defined
 if echo | cmp - bash.txt > /dev/null 2>&1; then
 	echo "[31m*** \$BASH was undefined in bash :-rule.[0m"
-    exit 1
+	exit 1
 fi
 
 eotup

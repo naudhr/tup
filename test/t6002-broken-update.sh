@@ -1,7 +1,7 @@
 #! /bin/sh -e
 # tup - A file-based build system
 #
-# Copyright (C) 2008-2021  Mike Shal <marfey@gmail.com>
+# Copyright (C) 2008-2024  Mike Shal <marfey@gmail.com>
 #
 # This program is free software; you can redistribute it and/or modify
 # it under the terms of the GNU General Public License version 2 as
@@ -20,19 +20,14 @@
 cp ../testTupfile.tup Tupfile
 
 echo "int main(void) {}" > foo.c
-tup touch foo.c
 update
 sym_check foo.o main
 
 echo "int main(void) {bork}" > foo.c
-tup touch foo.c
 update_fail
 
 echo "int main(void) {}" > foo.c
-tup touch foo.c
-if tup upd  | grep 'gcc.*foo.o' | wc -l | grep 2 > /dev/null; then
-	:
-else
+if [ "$(tup | grep -c 'gcc.*foo.o')" != 2 ]; then
 	echo "foo.c should have been compiled and linked again." 1>&2
 	exit 1
 fi

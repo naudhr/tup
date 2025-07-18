@@ -1,7 +1,7 @@
 #! /bin/sh -e
 # tup - A file-based build system
 #
-# Copyright (C) 2013-2021  Mike Shal <marfey@gmail.com>
+# Copyright (C) 2013-2024  Mike Shal <marfey@gmail.com>
 #
 # This program is free software; you can redistribute it and/or modify
 # it under the terms of the GNU General Public License version 2 as
@@ -23,13 +23,11 @@
 cat > Tupfile << HERE
 : |> touch bar |> bar
 HERE
-tup touch Tupfile
 update
 
 cat > Tupfile << HERE
 : |> touch bar |> bar baz foo
 HERE
-tup touch Tupfile
 refactor_fail_msg "Attempting to add a new output to a command: baz"
 refactor_fail_msg "Attempting to add a new output to a command: foo"
 

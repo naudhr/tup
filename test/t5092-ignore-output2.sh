@@ -1,7 +1,7 @@
 #! /bin/sh -e
 # tup - A file-based build system
 #
-# Copyright (C) 2018-2021  Mike Shal <marfey@gmail.com>
+# Copyright (C) 2018-2024  Mike Shal <marfey@gmail.com>
 #
 # This program is free software; you can redistribute it and/or modify
 # it under the terms of the GNU General Public License version 2 as
@@ -43,7 +43,7 @@ check_exist ignoredir/file.txt
 update_null "All ignored files should be in the database"
 
 # Make sure running with ignored files already in the db still works.
-tup touch run.sh
+touch run.sh
 update
 
 # Now remove the group.
@@ -52,7 +52,6 @@ cat > Tupfile << HERE
 : |> sh run.sh output2.txt |> output2.txt ^/ignore
 : output.txt output2.txt |> cat output.txt output2.txt |>
 HERE
-tup touch Tupfile
 update
 
 tup_object_exist ^ '/ignore'
@@ -62,7 +61,6 @@ tup_object_no_exist . '<group>'
 cat > Tupfile << HERE
 : |> sh run.sh output.txt |> output.txt ^/ignore
 HERE
-tup touch Tupfile
 update
 
 tup_object_exist ^ '/ignore'
@@ -72,7 +70,6 @@ tup_dep_exist . 'sh run.sh output.txt' ^ '/ignore'
 # removed.
 cat > Tupfile << HERE
 HERE
-tup touch Tupfile
 update
 
 tup_object_no_exist ^ '/ignore'

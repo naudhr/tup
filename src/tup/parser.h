@@ -2,7 +2,7 @@
  *
  * tup - A file-based build system
  *
- * Copyright (C) 2008-2021  Mike Shal <marfey@gmail.com>
+ * Copyright (C) 2008-2024  Mike Shal <marfey@gmail.com>
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 as
@@ -26,14 +26,15 @@
 #include "timespan.h"
 #include "bin.h"
 #include "vardb.h"
-#include <pcre.h>
+#include "tup_pcre.h"
 
 #define TUPLUA_NOERROR 0
 #define TUPLUA_PENDINGERROR 1
 #define TUPLUA_ERRORSHOWN 2
 
-#define DISALLOW_NODES 0
-#define ALLOW_NODES 1
+#define KEEP_NODES 0
+#define EXPAND_NODES 1
+#define EXPAND_NODES_SRC 2
 
 #define parser_error(tf, err_string) fprintf((tf)->f, "%s: %s\n", (err_string), strerror(errno));
 
@@ -52,9 +53,8 @@ struct tupfile {
 	int root_fd;
 	int refactoring;
 	struct graph *g;
-	struct vardb vdb;
+	struct vardb node_db;
 	struct bin_head bin_list;
-	struct node_vardb node_db;
 	struct tupid_entries cmd_root;
 	struct tent_entries env_root;
 	struct string_entries bang_root;
@@ -70,7 +70,12 @@ struct tupfile {
 	int luaerror;
 	int use_server;
 	int full_deps;
+	int including_rules;
+
+	SLIST_ENTRY(tupfile) list;
 };
+
+SLIST_HEAD(tupfile_head, tupfile);
 
 #define MAX_GLOBS 10
 
@@ -126,7 +131,8 @@ struct path_list {
 	struct bin *bin;
 
 	/* For exclusions: */
-	pcre *re;
+	pcre2_code *re;
+	pcre2_match_data *re_match;
 
 	/* Copy of the full string */
 	char mem[0];
@@ -142,6 +148,7 @@ struct rule {
 	struct name_list inputs;
 	struct name_list order_only_inputs;
 	struct name_list bang_oo_inputs;
+	struct path_list_head order_only_input_paths;
 	struct path_list_head outputs;
 	struct path_list_head extra_outputs;
 	struct path_list_head bang_extra_outputs;
@@ -154,6 +161,7 @@ struct bin_head;
 int parse_dependent_tupfiles(struct path_list_head *plist, struct tupfile *tf);
 int exec_run_script(struct tupfile *tf, const char *cmdline, int lno);
 int export(struct tupfile *tf, const char *cmdline);
+int import(struct tupfile *tf, const char *cmdline, const char **retvar, const char **retval);
 void free_path_list(struct path_list_head *plist);
 struct path_list *new_pl(struct tupfile *tf, const char *s, int len, struct bin_head *bl, int orderid);
 void del_pl(struct path_list *pl, struct path_list_head *head);
@@ -167,6 +175,7 @@ void init_rule(struct rule *r);
 int execute_rule(struct tupfile *tf, struct rule *r, struct name_list *output_nl);
 int parser_include_file(struct tupfile *tf, const char *file);
 int parser_include_rules(struct tupfile *tf, const char *tuprules);
+int remove_tup_gitignore(FILE *err, struct graph *g, struct tup_entry *tent);
 
 struct node;
 struct graph;

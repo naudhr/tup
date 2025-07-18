@@ -1,7 +1,7 @@
 #! /bin/sh -e
 # tup - A file-based build system
 #
-# Copyright (C) 2011-2021  Mike Shal <marfey@gmail.com>
+# Copyright (C) 2011-2024  Mike Shal <marfey@gmail.com>
 #
 # This program is free software; you can redistribute it and/or modify
 # it under the terms of the GNU General Public License version 2 as
@@ -26,7 +26,6 @@ echo "hey there" > foo.c
 cat > Tupfile << HERE
 : |> touch foo.c |>
 HERE
-tup touch foo.c Tupfile
 update_fail_msg "\(tup error.*utimens\|Unspecified output files\)"
 
 check_exist foo.c

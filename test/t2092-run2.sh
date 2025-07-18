@@ -1,7 +1,7 @@
 #! /bin/sh -e
 # tup - A file-based build system
 #
-# Copyright (C) 2011-2021  Mike Shal <marfey@gmail.com>
+# Copyright (C) 2011-2024  Mike Shal <marfey@gmail.com>
 #
 # This program is free software; you can redistribute it and/or modify
 # it under the terms of the GNU General Public License version 2 as
@@ -31,8 +31,8 @@ chmod +x gen.sh
 cat > Tupfile << HERE
 run ./gen.sh
 HERE
-tmkdir src
-tup touch Tupfile gen.sh foo.c src/bar.c
+mkdir src
+touch foo.c src/bar.c
 update
 
 check_exist foo.o bar.o

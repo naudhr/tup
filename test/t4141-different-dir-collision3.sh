@@ -1,7 +1,7 @@
 #! /bin/sh -e
 # tup - A file-based build system
 #
-# Copyright (C) 2013-2021  Mike Shal <marfey@gmail.com>
+# Copyright (C) 2013-2024  Mike Shal <marfey@gmail.com>
 #
 # This program is free software; you can redistribute it and/or modify
 # it under the terms of the GNU General Public License version 2 as
@@ -21,9 +21,9 @@
 
 . ./tup.sh
 
-tmkdir foo
-tmkdir bar
-tmkdir baz
+mkdir foo
+mkdir bar
+mkdir baz
 echo foo > foo/foo.txt
 echo bar > bar/bar.txt
 echo baz > baz/baz.txt
@@ -35,7 +35,6 @@ HERE
 cat > baz/Tupfile << HERE
 : |> cp baz.txt %o |> bazout.txt
 HERE
-tup touch foo/Tupfile bar/Tupfile baz/Tupfile
 update
 
 echo bar | diff - bar/barout.txt
@@ -49,7 +48,6 @@ HERE
 cat > foo/Tupfile << HERE
 : |> sh ok.sh |> ../bar/barout.txt ../baz/bazout.txt
 HERE
-tup touch foo/Tupfile
 rm bar/Tupfile baz/Tupfile
 update
 

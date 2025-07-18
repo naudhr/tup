@@ -1,7 +1,7 @@
 #! /bin/sh -e
 # tup - A file-based build system
 #
-# Copyright (C) 2013-2021  Mike Shal <marfey@gmail.com>
+# Copyright (C) 2013-2024  Mike Shal <marfey@gmail.com>
 #
 # This program is free software; you can redistribute it and/or modify
 # it under the terms of the GNU General Public License version 2 as
@@ -25,7 +25,6 @@ tup.definerule{command = 'touch a.txt', outputs = {'a.txt'}}
 node_var = tup.nodevariable 'a.txt'
 HERE
 
-tup touch Tupfile.lua
 update_fail_msg "Node-variables can only refer to normal files and directories, not a 'generated file'."
 
 eotup

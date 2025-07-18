@@ -1,7 +1,7 @@
 #! /bin/sh -e
 # tup - A file-based build system
 #
-# Copyright (C) 2009-2021  Mike Shal <marfey@gmail.com>
+# Copyright (C) 2009-2024  Mike Shal <marfey@gmail.com>
 #
 # This program is free software; you can redistribute it and/or modify
 # it under the terms of the GNU General Public License version 2 as
@@ -23,8 +23,8 @@
 
 . ./tup.sh
 
-tmkdir a
-tmkdir b
+mkdir a
+mkdir b
 
 # Verify both files are compiled
 echo "void foo(void); int main(void) {foo(); return 0;}" > main.c
@@ -42,7 +42,6 @@ cat > b/Tupfile << HERE
 : foreach *.c |> gcc -c %f -o %o |> %B.o
 : *.o |> ar cr %o %f |> libfoo.a
 HERE
-tup touch main.c b/foo.c Tupfile b/Tupfile
 update
 echo libB | diff - output.txt
 
@@ -61,7 +60,6 @@ cat > a/Tupfile << HERE
 : foreach *.c |> gcc -c %f -o %o |> %B.o
 : *.o |> ar cr %o %f |> libfoo.a
 HERE
-tup touch a/foo.c a/Tupfile
 update_fail
 
 # Add the pre-requisite, and the update should succeed - the program should now
@@ -71,7 +69,6 @@ cat > Tupfile << HERE
 : *.o | a/libfoo.a b/libfoo.a |> gcc %f -La -Lb -lfoo -o %o |> prog.exe
 : prog.exe |> ./%f > %o |> output.txt
 HERE
-tup touch Tupfile
 update
 echo libA | diff - output.txt
 

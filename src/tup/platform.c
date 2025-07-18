@@ -2,7 +2,7 @@
  *
  * tup - A file-based build system
  *
- * Copyright (C) 2010-2021  Mike Shal <marfey@gmail.com>
+ * Copyright (C) 2010-2024  Mike Shal <marfey@gmail.com>
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 as
@@ -58,6 +58,14 @@ const char *tup_arch = "sparc";
 const char *tup_arch = "arm";
 #elif __aarch64__
 const char *tup_arch = "arm64";
+#elif (__riscv || __riscv__) && __riscv_xlen == 64
+const char *tup_arch = "riscv64";
+#elif (__riscv || __riscv__) && __riscv_xlen == 32
+const char *tup_arch = "riscv32";
+#elif __loongarch64
+const char *tup_arch = "loongarch64";
+#elif __s390x__
+const char *tup_arch = "s390x";
 #else
 #error Unsupported cpu architecture. Please add support in tup/platform.c
 #endif

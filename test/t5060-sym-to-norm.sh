@@ -1,7 +1,7 @@
 #! /bin/sh -e
 # tup - A file-based build system
 #
-# Copyright (C) 2009-2021  Mike Shal <marfey@gmail.com>
+# Copyright (C) 2009-2024  Mike Shal <marfey@gmail.com>
 #
 # This program is free software; you can redistribute it and/or modify
 # it under the terms of the GNU General Public License version 2 as
@@ -26,14 +26,13 @@ cat > Tupfile << HERE
 : |> ln -s foo bar |> bar
 : bar |> cat %f > %o |> output
 HERE
-tup touch foo Tupfile
+touch foo
 update
 
 cat > Tupfile << HERE
 : |> touch bar |> bar
 : bar |> cat %f > %o |> output
 HERE
-tup touch Tupfile
 update
 
 # Make sure the sym field in bar no longer points to foo

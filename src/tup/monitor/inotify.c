@@ -2,7 +2,7 @@
  *
  * tup - A file-based build system
  *
- * Copyright (C) 2008-2021  Mike Shal <marfey@gmail.com>
+ * Copyright (C) 2008-2024  Mike Shal <marfey@gmail.com>
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 as
@@ -23,17 +23,17 @@
  * scanning algorithm:
  *
  *        Step 1.  Start at initial directory foo.  Add watch.
- *        
+ *
  *        Step 2.  Setup handlers for watch created in Step 1.
  *                 Specifically, ensure that a directory created
  *                 in foo will result in a handled CREATE_SUBDIR
  *                 event.
- *        
+ *
  *        Step 3.  Read the contents of foo.
- *        
+ *
  *        Step 4.  For each subdirectory of foo read in step 3, repeat
  *                 step 1.
- *        
+ *
  *        Step 5.  For any CREATE_SUBDIR event on bar, if a watch is
  *                 not yet created on bar, repeat step 1 on bar.
  */
@@ -286,7 +286,7 @@ int monitor(int argc, char **argv)
 
 			/* Need to clear out all saved structures (the dircache
 			 * and tup_entries), then shut the monitor off before
-			 * turning it back on. If there is a waiting 'tup upd'
+			 * turning it back on. If there is a waiting 'tup'
 			 * it will get the lock and update in scan mode before
 			 * we return from tup_lock_init(). Then we should be
 			 * good to go.
@@ -963,6 +963,13 @@ static void *wait_thread(void *arg)
 
 static int skip_event(struct inotify_event *e)
 {
+	/* While pel_ignored doesn't skip hidden files, we do here for
+	 * ease-of-use with editors (eg: vim) that create .blah.swp files in
+	 * the monitored directory.
+	 */
+	if(e->len > 0 && e->name[0] == '.' && strstr(e->name, ".swp") != NULL)
+		return 1;
+
 	/* Skip hidden files */
 	return pel_ignored(e->name, e->len);
 }
@@ -1217,7 +1224,23 @@ static int handle_event(struct monitor_event *m, int *modified)
 	}
 	if(!(m->e.mask & IN_ISDIR) &&
 	   (m->e.mask & IN_MODIFY || m->e.mask & IN_ATTRIB)) {
-		if(tup_file_mod(dc->dt_node.tupid, m->e.name, modified) < 0)
+		int *tmp_modified = modified;
+		struct tup_entry *tent;
+		struct tup_entry *dtent;
+		if(tup_entry_add(dc->dt_node.tupid, &dtent) < 0) {
+			return -1;
+		}
+		if(tup_db_select_tent(dtent, m->e.name, &tent) < 0)
+			return -1;
+		if(tent && tent->type == TUP_NODE_GENERATED) {
+			/* t7061 - generated files that are restored when an ^o
+			 * rule fails can get set to IN_MODIFY by the
+			 * ephemeral_event() logic. We don't want to set that
+			 * as modified here and trigger an autoupdate.
+			 */
+			tmp_modified = NULL;
+		}
+		if(tup_file_mod(dc->dt_node.tupid, m->e.name, tmp_modified) < 0)
 			return -1;
 	}
 	if(m->e.mask & IN_DELETE) {

@@ -1,7 +1,7 @@
 #! /bin/sh -e
 # tup - A file-based build system
 #
-# Copyright (C) 2009-2021  Mike Shal <marfey@gmail.com>
+# Copyright (C) 2009-2024  Mike Shal <marfey@gmail.com>
 #
 # This program is free software; you can redistribute it and/or modify
 # it under the terms of the GNU General Public License version 2 as
@@ -29,7 +29,7 @@
 # is because the faces are silly.
 
 . ./tup.sh
-tmkdir tmp
+mkdir tmp
 cat > tmp/Tupfile << HERE
 include Tupfile.vars
 : foreach *.c |> gcc -c %f -o %o |> %B.o
@@ -42,7 +42,6 @@ HERE
 
 echo "int main(void) {return 0;}" > tmp/foo.c
 touch tmp/bar.c
-tup touch tmp/foo.c tmp/bar.c tmp/Tupfile tmp/Tupfile.vars
 update
 tup_object_exist tmp foo.c bar.c
 tup_object_exist tmp "gcc -c foo.c -o foo.o"
@@ -54,7 +53,6 @@ cat > tmp/Tupfile << HERE
 : foreach *.c |> gcc -c %f -o %o |> %B.o
 : *.o |> gcc -o %o %f |> prog.exe
 HERE
-tup touch tmp/Tupfile
 update
 tup_dep_no_exist tmp Tupfile.vars . tmp
 

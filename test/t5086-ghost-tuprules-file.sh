@@ -1,7 +1,7 @@
 #! /bin/sh -e
 # tup - A file-based build system
 #
-# Copyright (C) 2018-2021  Mike Shal <marfey@gmail.com>
+# Copyright (C) 2018-2024  Mike Shal <marfey@gmail.com>
 #
 # This program is free software; you can redistribute it and/or modify
 # it under the terms of the GNU General Public License version 2 as
@@ -19,13 +19,13 @@
 # Make sure we don't get a spurious error message if the top-level Tuprules.tup file is a ghost.
 . ./tup.sh
 
-tmkdir sub
+mkdir sub
 cat > sub/Tupfile << HERE
 include_rules
 HERE
 update
 
-tup touch bar.txt
+touch bar.txt
 update > output.txt
 if grep 'Tuprules.tup: No such file or directory' output.txt > /dev/null; then
 	cat output.txt

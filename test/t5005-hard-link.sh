@@ -1,7 +1,7 @@
 #! /bin/sh -e
 # tup - A file-based build system
 #
-# Copyright (C) 2008-2021  Mike Shal <marfey@gmail.com>
+# Copyright (C) 2008-2024  Mike Shal <marfey@gmail.com>
 #
 # This program is free software; you can redistribute it and/or modify
 # it under the terms of the GNU General Public License version 2 as
@@ -28,13 +28,13 @@ new-%: %
 	tup link "cp \$< \$@" -i\$< -o\$@
 HERE
 
-tup touch file1 file2 Makefile
+touch file1 file2 Makefile
 update
 check_exist new-file1 new-file2
 
 rm new-file1 new-file2
 
-tup touch file1
+touch file1
 
 update
 check_exist new-file1 new-file2

@@ -1,7 +1,7 @@
 #! /bin/sh -e
 # tup - A file-based build system
 #
-# Copyright (C) 2009-2021  Mike Shal <marfey@gmail.com>
+# Copyright (C) 2009-2024  Mike Shal <marfey@gmail.com>
 #
 # This program is free software; you can redistribute it and/or modify
 # it under the terms of the GNU General Public License version 2 as
@@ -20,17 +20,16 @@
 # Tupfile to try to include it.
 
 . ./tup.sh
-tmkdir fs
-tmkdir fs/sub
+mkdir fs
+mkdir fs/sub
 cat > fs/Tupfile << HERE
 include_rules
 : foreach *.c |> gcc \$(CFLAGS) -c %f -o %o |> %B.o
 : *.o |> gcc \$(LDFLAGS) %f -o %o |> prog
 HERE
 
-tup touch fs/Tupfile
-tup touch fs/ok.c
-tup touch fs/sub/helper.c
+touch fs/ok.c
+touch fs/sub/helper.c
 parse
 
 tup_object_exist fs 'gcc  -c ok.c -o ok.o'
@@ -38,7 +37,6 @@ tup_object_exist fs 'gcc  -c ok.c -o ok.o'
 tup_dep_exist . Tuprules.tup . fs
 
 cp fs/Tupfile fs/sub/Tupfile
-tup touch fs/sub/Tupfile
 parse
 
 tup_object_exist fs/sub 'gcc  -c helper.c -o helper.o'

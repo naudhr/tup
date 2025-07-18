@@ -1,7 +1,7 @@
 #! /bin/sh -e
 # tup - A file-based build system
 #
-# Copyright (C) 2011-2021  Mike Shal <marfey@gmail.com>
+# Copyright (C) 2011-2024  Mike Shal <marfey@gmail.com>
 #
 # This program is free software; you can redistribute it and/or modify
 # it under the terms of the GNU General Public License version 2 as
@@ -20,8 +20,8 @@
 
 . ./tup.sh
 
-tmkdir sub
-tmkdir sub/dir2
+mkdir sub
+mkdir sub/dir2
 touch sub/dir2/a1.txt
 touch sub/dir2/a2.txt
 cd sub
@@ -44,8 +44,8 @@ cd ..
 update
 
 for i in foo.txt bar.txt tmpsub/baz.txt dir2/a1.txt dir2/a2.txt; do
-	if ! grep "$1" sub/output.dat > /dev/null; then
-		echo "Error: '$1' should be in the output file" 1>&2
+	if ! grep "$i" sub/output.dat > /dev/null; then
+		echo "Error: '$i' should be in the output file" 1>&2
 		exit 1
 	fi
 done

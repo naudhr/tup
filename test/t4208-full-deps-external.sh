@@ -1,7 +1,7 @@
 #! /bin/sh -e
 # tup - A file-based build system
 #
-# Copyright (C) 2018-2021  Mike Shal <marfey@gmail.com>
+# Copyright (C) 2018-2024  Mike Shal <marfey@gmail.com>
 #
 # This program is free software; you can redistribute it and/or modify
 # it under the terms of the GNU General Public License version 2 as
@@ -36,7 +36,6 @@ HERE
 cat > Tupfile << HERE
 : $root/external/foo.txt |> sh run.sh %f %o |> out.txt
 HERE
-tup touch Tupfile
 update
 
 # An external missing file can also work.
@@ -44,7 +43,6 @@ cat > Tupfile << HERE
 : $root/external/foo.txt |> sh run.sh %f %o |> out.txt
 : $root/external/missing.txt |> sh run.sh %f %o |> out2.txt
 HERE
-tup touch Tupfile
 update
 
 echo nofile | diff - out2.txt
@@ -54,11 +52,10 @@ echo nofile | diff - out2.txt
 cat > Tupfile << HERE
 : $root/external/foo.txt |> sh run.sh %f %o |> out.txt
 HERE
-tup touch Tupfile
 update
 
 if [ "$in_windows" = "1" ]; then
-	prefix="`echo $root | sed 's,/cygdrive/c,c:,'`"
+	prefix="`echo $root | sed 's,/c,c:,'`"
 else
 	prefix="$root"
 fi
@@ -67,7 +64,6 @@ tup_object_exist $prefix/external foo.txt
 
 cat > Tupfile << HERE
 HERE
-tup touch Tupfile
 parse
 
 tup_object_no_exist $prefix$root/external foo.txt

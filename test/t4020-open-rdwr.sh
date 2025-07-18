@@ -1,7 +1,7 @@
 #! /bin/sh -e
 # tup - A file-based build system
 #
-# Copyright (C) 2010-2021  Mike Shal <marfey@gmail.com>
+# Copyright (C) 2010-2024  Mike Shal <marfey@gmail.com>
 #
 # This program is free software; you can redistribute it and/or modify
 # it under the terms of the GNU General Public License version 2 as
@@ -36,7 +36,6 @@ gcc prog.c -o prog.exe
 cat > Tupfile << HERE
 : |> ./prog.exe |> output
 HERE
-tup touch prog.exe Tupfile
 update
 
 tup_dep_exist . './prog.exe' . output

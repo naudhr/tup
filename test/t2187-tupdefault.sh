@@ -1,7 +1,7 @@
 #! /bin/sh -e
 # tup - A file-based build system
 #
-# Copyright (C) 2015-2021  Mike Shal <marfey@gmail.com>
+# Copyright (C) 2015-2024  Mike Shal <marfey@gmail.com>
 #
 # This program is free software; you can redistribute it and/or modify
 # it under the terms of the GNU General Public License version 2 as
@@ -20,12 +20,12 @@
 # all sub-directories.
 
 . ./tup.sh
-tmkdir sub
-tmkdir sub/a
-tmkdir sub/b
-tmkdir sub/b/b2
-tmkdir sub/c
-tmkdir sub/c/c2
+mkdir sub
+mkdir sub/a
+mkdir sub/b
+mkdir sub/b/b2
+mkdir sub/c
+mkdir sub/c/c2
 
 cat > Tupdefault.lua<< HERE
 tup.rule('echo lua')

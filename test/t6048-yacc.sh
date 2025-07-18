@@ -1,7 +1,7 @@
 #! /bin/sh -e
 # tup - A file-based build system
 #
-# Copyright (C) 2011-2021  Mike Shal <marfey@gmail.com>
+# Copyright (C) 2011-2024  Mike Shal <marfey@gmail.com>
 #
 # This program is free software; you can redistribute it and/or modify
 # it under the terms of the GNU General Public License version 2 as
@@ -31,7 +31,7 @@ chmod +x ok.sh
 cat > Tupfile << HERE
 : foreach *.in |> ./ok.sh %f %o |> %B.out
 HERE
-tup touch ok.sh Tupfile 0.in 1.in 2.in 3.in 4.in 5.in 6.in 7.in 8.in 9.in
+touch 0.in 1.in 2.in 3.in 4.in 5.in 6.in 7.in 8.in 9.in
 update -j10
 
 for i in `seq 0 9`; do

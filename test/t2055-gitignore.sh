@@ -1,7 +1,7 @@
 #! /bin/sh -e
 # tup - A file-based build system
 #
-# Copyright (C) 2009-2021  Mike Shal <marfey@gmail.com>
+# Copyright (C) 2009-2024  Mike Shal <marfey@gmail.com>
 #
 # This program is free software; you can redistribute it and/or modify
 # it under the terms of the GNU General Public License version 2 as
@@ -30,14 +30,14 @@ include_rules
 HERE
 echo 'int main(void) {return 0;}' > foo.c
 
-tmkdir sub
+mkdir sub
 cat > sub/Tupfile << HERE
 : foreach *.c |> gcc -c %f -o %o |> %B.o
 : *.o |> ar cr %o %f |> libsub.a
 include_rules
 HERE
 
-tup touch foo.c bar.c Tupfile Tuprules.tup sub/Tupfile sub/shazam.c
+touch bar.c sub/shazam.c
 update
 
 if [ ! -f .gitignore ]; then
@@ -54,14 +54,15 @@ gitignore_bad bar.c .gitignore
 gitignore_bad Tupfile .gitignore
 gitignore_good foo.o .gitignore
 gitignore_good bar.o .gitignore
+gitignore_good .gitignore .gitignore
 gitignore_good prog.exe .gitignore
 gitignore_bad shazam.c sub/.gitignore
 gitignore_bad Tupfile sub/.gitignore
 gitignore_good shazam.o sub/.gitignore
 gitignore_good libsub.a sub/.gitignore
+gitignore_good .gitignore sub/.gitignore
 
 rm -f Tuprules.tup
-tup rm Tuprules.tup
 update
 for f in .gitignore sub/.gitignore .gitignore.new sub/.gitignore.new; do
 	if [ -f $f ]; then

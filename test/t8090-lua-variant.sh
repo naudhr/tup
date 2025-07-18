@@ -1,7 +1,7 @@
 #! /bin/sh -e
 # tup - A file-based build system
 #
-# Copyright (C) 2012-2021  Mike Shal <marfey@gmail.com>
+# Copyright (C) 2012-2024  Mike Shal <marfey@gmail.com>
 #
 # This program is free software; you can redistribute it and/or modify
 # it under the terms of the GNU General Public License version 2 as
@@ -19,8 +19,8 @@
 # Try a variant in lua.
 . ./tup.sh
 
-tmkdir build
-tmkdir sub
+mkdir build
+mkdir sub
 
 cat > Tupfile.lua << HERE
 objs = tup.foreach_rule('*.c', 'gcc -c %f -o %o', '%B.o')
@@ -32,13 +32,13 @@ tup.foreach_rule('*.c', 'gcc -c %f -o %o', '%B.o')
 HERE
 echo "int main(void) {return 0;}" > foo.c
 echo "CONFIG_FOO=y" > build/tup.config
-tup touch build/tup.config Tupfile.lua foo.c sub/bar.c
+touch sub/bar.c
 update
 
 check_exist build/foo.o build/sub/bar.o build/prog.exe
 check_not_exist foo.o sub/bar.o prog.exe
 
-tup touch baz.c
+touch baz.c
 update
 check_exist build/baz.o
 

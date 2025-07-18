@@ -1,7 +1,7 @@
 #! /bin/sh -e
 # tup - A file-based build system
 #
-# Copyright (C) 2012-2021  Mike Shal <marfey@gmail.com>
+# Copyright (C) 2012-2024  Mike Shal <marfey@gmail.com>
 #
 # This program is free software; you can redistribute it and/or modify
 # it under the terms of the GNU General Public License version 2 as
@@ -21,7 +21,7 @@
 . ./tup.sh
 check_no_windows shell
 
-tmkdir build-default
+mkdir build-default
 
 cat > Tupfile << HERE
 ifeq (@(DEBUG),y)
@@ -30,7 +30,6 @@ endif
 : |> if [ -f bar ]; then cat bar; else echo nofile; fi > %o |> output.txt
 HERE
 echo "" > build-default/tup.config
-tup touch Tupfile
 update
 
 echo nofile | diff - build-default/output.txt
@@ -43,7 +42,6 @@ endif
 : |> echo foo > %o |> bar
 : bar |> if [ -f %f ]; then cat %f; else echo nofile; fi > %o |> output.txt
 HERE
-tup touch Tupfile
 update
 
 echo foo | diff - build-default/output.txt

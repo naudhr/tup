@@ -1,7 +1,7 @@
 #! /bin/sh -e
 # tup - A file-based build system
 #
-# Copyright (C) 2021  Mike Shal <marfey@gmail.com>
+# Copyright (C) 2021-2024  Mike Shal <marfey@gmail.com>
 #
 # This program is free software; you can redistribute it and/or modify
 # it under the terms of the GNU General Public License version 2 as
@@ -28,12 +28,11 @@ HERE
 cat > Tupfile << HERE
 : foreach in*.txt |> cp %f %o |> %B.out.txt
 HERE
-for i in `seq 1 8`; do tup touch in$i.txt; done
+for i in `seq 1 8`; do touch in$i.txt; done
 update
 
-for i in `seq 1 4`; do tup touch in$i.out.txt; done
+for i in `seq 1 4`; do touch in$i.out.txt; done
 echo "" > Tupfile
-tup touch Tupfile
 update > .tup/output.txt
 
 if ! grep '0) rm: ' .tup/output.txt > /dev/null; then

@@ -1,7 +1,7 @@
 #! /bin/sh -e
 # tup - A file-based build system
 #
-# Copyright (C) 2012-2021  Mike Shal <marfey@gmail.com>
+# Copyright (C) 2012-2024  Mike Shal <marfey@gmail.com>
 #
 # This program is free software; you can redistribute it and/or modify
 # it under the terms of the GNU General Public License version 2 as
@@ -47,7 +47,6 @@ update
 
 check_exist build/dist/bar/sub
 tup_dep_exist dist/bar/sub foo.h build 'gcc -c foo.c -o build/foo.o -Idist'
-sleep 1
 
 rm -rf dist/bar/sub
 cd dist/bar

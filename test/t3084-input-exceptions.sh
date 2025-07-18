@@ -1,7 +1,7 @@
 #! /bin/sh -e
 # tup - A file-based build system
 #
-# Copyright (C) 2011-2021  Mike Shal <marfey@gmail.com>
+# Copyright (C) 2011-2024  Mike Shal <marfey@gmail.com>
 #
 # This program is free software; you can redistribute it and/or modify
 # it under the terms of the GNU General Public License version 2 as
@@ -35,7 +35,6 @@ gitignore_good d lines.txt
 
 echo ': *.file ^e.file |> cat %f > %o |> lines.txt' > Tupfile
 
-tup touch Tupfile
 update
 
 gitignore_good a lines.txt
@@ -45,7 +44,6 @@ gitignore_good d lines.txt
 
 echo ': *.file ^[bc].file |> cat %f > %o |> lines.txt' > Tupfile
 
-tup touch Tupfile
 update
 
 gitignore_good a lines.txt
@@ -55,7 +53,6 @@ gitignore_good d lines.txt
 
 echo ': *.file ^c.file ^[bc].file |> cat %f > %o |> lines.txt' > Tupfile
 
-tup touch Tupfile
 update
 
 gitignore_good a lines.txt
@@ -68,7 +65,6 @@ echo ': sub/*.file ^sub/c.file |> cat %f > %o |> lines.txt' > Tupfile
 mkdir sub
 mv *.file sub/
 
-tup touch Tupfile
 update
 
 gitignore_good a lines.txt

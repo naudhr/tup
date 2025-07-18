@@ -1,7 +1,7 @@
 #! /bin/sh -e
 # tup - A file-based build system
 #
-# Copyright (C) 2009-2021  Mike Shal <marfey@gmail.com>
+# Copyright (C) 2009-2024  Mike Shal <marfey@gmail.com>
 #
 # This program is free software; you can redistribute it and/or modify
 # it under the terms of the GNU General Public License version 2 as
@@ -25,18 +25,16 @@ check_no_windows symlink
 
 # Make the symlink first, in a separate directory. That way it will exist
 # and not be marked delete when we create a new Tupfile in the top-level
-tmkdir foo
+mkdir foo
 echo 'var = 3' > foo/x86.tup
 cat > foo/Tupfile << HERE
 : x86.tup |> ln -s %f %o |> arch.tup
 HERE
-tup touch foo/x86.tup foo/Tupfile
 update
 
 cat > Tupfile << HERE
 include foo/arch.tup
 HERE
-tup touch Tupfile
 update_fail_msg "Unable to read from generated file"
 
 eotup

@@ -1,7 +1,7 @@
 #! /bin/sh -e
 # tup - A file-based build system
 #
-# Copyright (C) 2009-2021  Mike Shal <marfey@gmail.com>
+# Copyright (C) 2009-2024  Mike Shal <marfey@gmail.com>
 #
 # This program is free software; you can redistribute it and/or modify
 # it under the terms of the GNU General Public License version 2 as
@@ -26,22 +26,18 @@ ln -s ghost bar
 cat > Tupfile << HERE
 : foreach foo bar |> cat %f 2>/dev/null || true |>
 HERE
-tup touch foo bar Tupfile
 update
 tup_object_exist . ghost foo bar
 
 rm -f foo
-tup rm foo
 cat > Tupfile << HERE
 : bar |> cat %f 2>/dev/null || true |>
 HERE
-tup touch Tupfile
 update
 tup_object_no_exist . foo
 tup_object_exist . ghost bar
 
 rm -f bar Tupfile
-tup rm bar Tupfile
 update
 tup_object_no_exist . ghost foo bar
 

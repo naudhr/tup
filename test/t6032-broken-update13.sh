@@ -1,7 +1,7 @@
 #! /bin/sh -e
 # tup - A file-based build system
 #
-# Copyright (C) 2009-2021  Mike Shal <marfey@gmail.com>
+# Copyright (C) 2009-2024  Mike Shal <marfey@gmail.com>
 #
 # This program is free software; you can redistribute it and/or modify
 # it under the terms of the GNU General Public License version 2 as
@@ -22,11 +22,11 @@
 # MinGW throws off the paths here, so doing 'cat /home/marf/tup/...' becomes
 # 'cat C:\MinGW\msys\1.0\home\marf\tup\...' which doesn't exist
 check_no_windows mingw
-tmkdir atmp
+mkdir atmp
 cat > atmp/Tupfile << HERE
 : |> cat $PWD/atmp/foo.txt |>
 HERE
-tup touch atmp/foo.txt atmp/Tupfile
+touch atmp/foo.txt
 update
 
 eotup

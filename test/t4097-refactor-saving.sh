@@ -1,7 +1,7 @@
 #! /bin/sh -e
 # tup - A file-based build system
 #
-# Copyright (C) 2013-2021  Mike Shal <marfey@gmail.com>
+# Copyright (C) 2013-2024  Mike Shal <marfey@gmail.com>
 #
 # This program is free software; you can redistribute it and/or modify
 # it under the terms of the GNU General Public License version 2 as
@@ -21,8 +21,8 @@
 
 . ./tup.sh
 
-tmkdir foo
-tmkdir bar
+mkdir foo
+mkdir bar
 cat > foo/Tupfile << HERE
 : |> echo foo |>
 HERE
@@ -40,7 +40,6 @@ cat > bar/Tupfile << HERE
 str = bar
 : |> echo \$(str) |>
 HERE
-tup touch foo/Tupfile bar/Tupfile
 refactor
 
 # Now change just foo - only foo should be refactored, since bar
@@ -50,7 +49,6 @@ cmd = echo
 str = foo
 : |> \$(cmd) \$(str) |>
 HERE
-tup touch foo/Tupfile
 tup refactor > .out.txt
 
 if ! grep foo .out.txt > /dev/null; then

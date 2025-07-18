@@ -1,7 +1,7 @@
 #! /bin/sh -e
 # tup - A file-based build system
 #
-# Copyright (C) 2013-2021  Mike Shal <marfey@gmail.com>
+# Copyright (C) 2013-2024  Mike Shal <marfey@gmail.com>
 #
 # This program is free software; you can redistribute it and/or modify
 # it under the terms of the GNU General Public License version 2 as
@@ -22,21 +22,19 @@
 cat > Tupfile.lua << HERE
 tup.rule('echo hey')
 HERE
-tup touch Tupfile.lua
 update
 tup_object_exist . "echo hey"
 
 cat > Tupfile.lua << HERE
 tup.rule({'foo.c'}, 'echo hey')
 HERE
-tup touch foo.c Tupfile.lua
+touch foo.c
 update
 tup_object_exist . "echo hey"
 
 cat > Tupfile.lua << HERE
 tup.rule('touch output', {'output'})
 HERE
-tup touch foo.c Tupfile.lua
 update
 tup_object_exist . "touch output"
 check_exist output
@@ -44,7 +42,6 @@ check_exist output
 cat > Tupfile.lua << HERE
 tup.rule('foo.c', 'touch output', 'output')
 HERE
-tup touch Tupfile.lua
 update
 tup_object_exist . "touch output"
 check_exist output

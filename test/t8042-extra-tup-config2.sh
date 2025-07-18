@@ -1,7 +1,7 @@
 #! /bin/sh -e
 # tup - A file-based build system
 #
-# Copyright (C) 2012-2021  Mike Shal <marfey@gmail.com>
+# Copyright (C) 2012-2024  Mike Shal <marfey@gmail.com>
 #
 # This program is free software; you can redistribute it and/or modify
 # it under the terms of the GNU General Public License version 2 as
@@ -19,9 +19,9 @@
 # Try to create an extra tup.config in the root directory while removing a variant.
 . ./tup.sh
 
-tmkdir build-debug
-tmkdir build-default
-tmkdir sub
+mkdir build-debug
+mkdir build-default
+mkdir sub
 
 cat > Tupfile << HERE
 .gitignore
@@ -33,7 +33,7 @@ cat > sub/Tupfile << HERE
 : foreach bar.c |> gcc -c %f -o %o |> %B.o
 HERE
 echo "int main(void) {return 0;}" > foo.c
-tup touch Tupfile foo.c build-default/tup.config build-debug/tup.config sub/bar.c
+touch build-default/tup.config build-debug/tup.config sub/bar.c
 update
 
 for i in foo.o sub/bar.o prog.exe sub/.gitignore; do
@@ -45,7 +45,7 @@ check_exist build-debug/.gitignore
 check_exist build-default/.gitignore
 check_exist .gitignore
 
-tup touch tup.config
+touch tup.config
 rm build-debug/tup.config
 tup parse > .output.txt
 

@@ -1,7 +1,7 @@
 #! /bin/sh -e
 # tup - A file-based build system
 #
-# Copyright (C) 2009-2021  Mike Shal <marfey@gmail.com>
+# Copyright (C) 2009-2024  Mike Shal <marfey@gmail.com>
 #
 # This program is free software; you can redistribute it and/or modify
 # it under the terms of the GNU General Public License version 2 as
@@ -20,21 +20,17 @@
 # the dependent Tupfiles to be re-parsed. In this case, the top-level Tupfile
 # should be re-parsed and fail because a/a2/Test.tup no longer exists.
 . ./tup.sh
-tmkdir a
-tmkdir a/a2
+mkdir a
+mkdir a/a2
 echo 'x = 5' > a/a2/Test.tup
 echo 'include a/a2/Test.tup' > Tupfile
 
-tup touch a/a2/Test.tup Tupfile
 update
 
 mv a b
-tup rm a
-tup touch b b/a2 b/a2/Test.tup
 update_fail
 
 echo 'include b/a2/Test.tup' > Tupfile
-tup touch Tupfile
 update
 
 eotup

@@ -1,7 +1,7 @@
 #! /bin/sh -e
 # tup - A file-based build system
 #
-# Copyright (C) 2012-2021  Mike Shal <marfey@gmail.com>
+# Copyright (C) 2012-2024  Mike Shal <marfey@gmail.com>
 #
 # This program is free software; you can redistribute it and/or modify
 # it under the terms of the GNU General Public License version 2 as
@@ -19,22 +19,21 @@
 # Make sure we can't use a variant file as an input.
 . ./tup.sh
 
-tmkdir build
+mkdir build
 cat > Tupfile << HERE
 : |> touch %o |> foo
 HERE
-tup touch Tupfile build/tup.config
+touch build/tup.config
 update
 
 cat > Tupfile << HERE
 : |> touch %o |> foo
 : ../build/foo |> cat %f > %o |> output
 HERE
-tup touch Tupfile
 update
 
-tmkdir build2
-tup touch build2/tup.config
+mkdir build2
+touch build2/tup.config
 update_fail_msg "Unable to use files from another variant.*in this variant"
 
 eotup

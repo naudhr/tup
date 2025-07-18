@@ -1,7 +1,7 @@
 #! /bin/sh -e
 # tup - A file-based build system
 #
-# Copyright (C) 2009-2021  Mike Shal <marfey@gmail.com>
+# Copyright (C) 2009-2024  Mike Shal <marfey@gmail.com>
 #
 # This program is free software; you can redistribute it and/or modify
 # it under the terms of the GNU General Public License version 2 as
@@ -31,10 +31,9 @@ cat > Tupfile << HERE
 include_rules
 HERE
 varsetall ARCH=y
-tup touch Tuprules.tup Tupfile
 update
 
-tup touch Tupfile
+touch Tupfile
 update
 
 eotup

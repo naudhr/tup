@@ -1,7 +1,7 @@
 #! /bin/sh -e
 # tup - A file-based build system
 #
-# Copyright (C) 2010-2021  Mike Shal <marfey@gmail.com>
+# Copyright (C) 2010-2024  Mike Shal <marfey@gmail.com>
 #
 # This program is free software; you can redistribute it and/or modify
 # it under the terms of the GNU General Public License version 2 as
@@ -27,12 +27,10 @@ check_no_windows shell
 cat > Tupfile << HERE
 : |> echo hey > ok.txt; exit 1 |> ok.txt
 HERE
-tup touch Tupfile
 update_fail_msg "failed with return value 1"
 
 cat > Tupfile << HERE
 HERE
-tup touch Tupfile
 update
 check_not_exist ok.txt
 

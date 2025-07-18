@@ -1,7 +1,7 @@
 #! /bin/sh -e
 # tup - A file-based build system
 #
-# Copyright (C) 2012-2021  Mike Shal <marfey@gmail.com>
+# Copyright (C) 2012-2024  Mike Shal <marfey@gmail.com>
 #
 # This program is free software; you can redistribute it and/or modify
 # it under the terms of the GNU General Public License version 2 as
@@ -19,15 +19,15 @@
 # Make sure that if we just scan the removal of a variant and re-create it with
 # a different symlink.
 . ./tup.sh
-check_no_windows tup variant
+check_no_windows symlink
 
-tmkdir sub
-tmkdir configs
+mkdir sub
+mkdir configs
 
 cat > sub/Tupfile << HERE
 : foreach *.c |> gcc -c %f -o %o |> %B.o
 HERE
-tup touch sub/Tupfile sub/foo.c sub/bar.c configs/foo.config
+touch sub/foo.c sub/bar.c configs/foo.config
 tup variant configs/*.config
 update
 

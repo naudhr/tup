@@ -1,7 +1,7 @@
 #! /bin/sh -e
 # tup - A file-based build system
 #
-# Copyright (C) 2020-2021  Mike Shal <marfey@gmail.com>
+# Copyright (C) 2020-2024  Mike Shal <marfey@gmail.com>
 #
 # This program is free software; you can redistribute it and/or modify
 # it under the terms of the GNU General Public License version 2 as
@@ -36,13 +36,13 @@ update
 check_not_exist tmp1.txt tmp2.txt
 
 # Try causing just one of the commands to run
-tup touch in1.txt
+touch in1.txt
 update
 
 check_not_exist tmp1.txt tmp2.txt
 
 # Try causing both of the commands to run
-tup touch in1.txt in2.txt
+touch in1.txt in2.txt
 update
 
 check_not_exist tmp1.txt tmp2.txt

@@ -1,7 +1,7 @@
 #! /bin/sh -e
 # tup - A file-based build system
 #
-# Copyright (C) 2010-2021  Mike Shal <marfey@gmail.com>
+# Copyright (C) 2010-2024  Mike Shal <marfey@gmail.com>
 #
 # This program is free software; you can redistribute it and/or modify
 # it under the terms of the GNU General Public License version 2 as
@@ -27,7 +27,6 @@ make_tup_client
 cat > Tupfile << HERE
 : |> ./client abcd |>
 HERE
-tup touch Tupfile
 update
 
 tup_object_exist tup.config abcd
@@ -35,7 +34,6 @@ tup_object_exist tup.config abcd
 cat > Tupfile << HERE
 : |> ./client defg |>
 HERE
-tup touch Tupfile
 update
 
 tup_object_no_exist tup.config abcd

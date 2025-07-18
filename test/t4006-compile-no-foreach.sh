@@ -1,7 +1,7 @@
 #! /bin/sh -e
 # tup - A file-based build system
 #
-# Copyright (C) 2008-2021  Mike Shal <marfey@gmail.com>
+# Copyright (C) 2008-2024  Mike Shal <marfey@gmail.com>
 #
 # This program is free software; you can redistribute it and/or modify
 # it under the terms of the GNU General Public License version 2 as
@@ -29,7 +29,6 @@ cat > Tupfile << HERE
 HERE
 
 echo "int main(void) {}" > foo.c
-tup touch foo.c Tupfile
 update
 sym_check foo.o main
 tup_object_exist . foo.o prog.exe
@@ -37,7 +36,7 @@ tup_object_exist . foo.o prog.exe
 # Run a second time, since in theory this time foo.o is in the database, but
 # will be moved to DELETE before the Tupfile is re-parsed. So, it's slightly
 # different in this case.
-tup touch foo.c Tupfile
+touch foo.c Tupfile
 update
 sym_check foo.o main
 tup_object_exist . foo.o prog.exe

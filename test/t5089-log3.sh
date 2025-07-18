@@ -1,7 +1,7 @@
 #! /bin/sh -e
 # tup - A file-based build system
 #
-# Copyright (C) 2018-2021  Mike Shal <marfey@gmail.com>
+# Copyright (C) 2018-2024  Mike Shal <marfey@gmail.com>
 #
 # This program is free software; you can redistribute it and/or modify
 # it under the terms of the GNU General Public License version 2 as
@@ -33,7 +33,6 @@ cat > ok.sh << HERE
 echo changed > out.txt
 echo bar > same.txt
 HERE
-tup touch ok.sh
 update --debug-logging
 log_good "Skip file.*: same.txt"
 log_good "Skip cmd.*: cat same.txt"

@@ -1,7 +1,7 @@
 #! /bin/sh -e
 # tup - A file-based build system
 #
-# Copyright (C) 2012-2021  Mike Shal <marfey@gmail.com>
+# Copyright (C) 2012-2024  Mike Shal <marfey@gmail.com>
 #
 # This program is free software; you can redistribute it and/or modify
 # it under the terms of the GNU General Public License version 2 as
@@ -26,7 +26,7 @@ files_foo.in += foo2.out
 files_bar.in += bar1.out
 : foreach *.in |> echo %f > %o |> \$(files_%f)
 HERE
-tup touch foo.in bar.in
+touch foo.in bar.in
 parse
 
 tup_dep_exist . 'echo foo.in > foo1.out foo2.out' . foo1.out

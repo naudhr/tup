@@ -1,7 +1,7 @@
 #! /bin/sh -e
 # tup - A file-based build system
 #
-# Copyright (C) 2020-2021  Mike Shal <marfey@gmail.com>
+# Copyright (C) 2020-2024  Mike Shal <marfey@gmail.com>
 #
 # This program is free software; you can redistribute it and/or modify
 # it under the terms of the GNU General Public License version 2 as
@@ -26,7 +26,7 @@ cat > data.txt << HERE
 foo
 bar
 HERE
-tmkdir sub
+mkdir sub
 cd sub
 re_init
 set_full_deps
@@ -44,7 +44,6 @@ update
 
 check_exist foo bar
 
-sleep 1
 cat > ../data.txt << HERE
 foo
 bar

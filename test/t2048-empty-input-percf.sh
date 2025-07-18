@@ -1,7 +1,7 @@
 #! /bin/sh -e
 # tup - A file-based build system
 #
-# Copyright (C) 2009-2021  Mike Shal <marfey@gmail.com>
+# Copyright (C) 2009-2024  Mike Shal <marfey@gmail.com>
 #
 # This program is free software; you can redistribute it and/or modify
 # it under the terms of the GNU General Public License version 2 as
@@ -22,25 +22,21 @@
 cat > Tupfile << HERE
 : |> cat %f > %o |> bar
 HERE
-tup touch Tupfile
 parse_fail_msg "%f used in rule pattern and no input files were specified"
 
 cat > Tupfile << HERE
 : |> cat %b > %o |> bar
 HERE
-tup touch Tupfile
 parse_fail_msg "%b used in rule pattern and no input files were specified"
 
 cat > Tupfile << HERE
 : |> cat %B > %o |> bar
 HERE
-tup touch Tupfile
 parse_fail_msg "%B used in rule pattern and no input files were specified"
 
 cat > Tupfile << HERE
 : |> cat %i > %o |> bar
 HERE
-tup touch Tupfile
 parse_fail_msg "%i used in rule pattern and no order-only input files were specified"
 
 eotup

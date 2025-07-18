@@ -1,7 +1,7 @@
 #! /bin/sh -e
 # tup - A file-based build system
 #
-# Copyright (C) 2012-2021  Mike Shal <marfey@gmail.com>
+# Copyright (C) 2012-2024  Mike Shal <marfey@gmail.com>
 #
 # This program is free software; you can redistribute it and/or modify
 # it under the terms of the GNU General Public License version 2 as
@@ -19,7 +19,7 @@
 # Start with an in-tree build, then create a variant, then create another variant.
 . ./tup.sh
 
-tmkdir build
+mkdir build
 
 cat > Tupfile << HERE
 ifeq (@(DEBUG),y)
@@ -27,7 +27,6 @@ ifeq (@(DEBUG),y)
 endif
 : |> touch %o |> bar
 HERE
-tup touch Tupfile
 update
 
 touch build/tup.config
@@ -36,9 +35,8 @@ update
 check_exist build/bar
 check_not_exist build/foo
 
-tmkdir build-debug
+mkdir build-debug
 echo "CONFIG_DEBUG=y" > build-debug/tup.config
-tup touch build-debug/tup.config
 
 update
 check_exist build-debug/bar

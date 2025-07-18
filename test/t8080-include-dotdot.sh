@@ -1,7 +1,7 @@
 #! /bin/sh -e
 # tup - A file-based build system
 #
-# Copyright (C) 2013-2021  Mike Shal <marfey@gmail.com>
+# Copyright (C) 2013-2024  Mike Shal <marfey@gmail.com>
 #
 # This program is free software; you can redistribute it and/or modify
 # it under the terms of the GNU General Public License version 2 as
@@ -19,12 +19,12 @@
 # Make sure we can't use files from outside of the variant when parsing.
 . ./tup.sh
 
-tmkdir build
+mkdir build
 
 cat > Tupfile << HERE
 include ../foo.tup
 HERE
-tup touch Tupfile foo.tup build/tup.config
+touch foo.tup build/tup.config
 update_fail_msg "Unable to include file '../foo.tup' since it is outside of the variant tree"
 
 eotup

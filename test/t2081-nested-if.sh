@@ -1,7 +1,7 @@
 #! /bin/sh -e
 # tup - A file-based build system
 #
-# Copyright (C) 2011-2021  Mike Shal <marfey@gmail.com>
+# Copyright (C) 2011-2024  Mike Shal <marfey@gmail.com>
 #
 # This program is free software; you can redistribute it and/or modify
 # it under the terms of the GNU General Public License version 2 as
@@ -31,7 +31,6 @@ else
 : |> foo n |>
 endif
 HERE
-tup touch Tupfile
 varsetall FOO=y BAR=y
 parse
 tup_object_exist . 'foo y'

@@ -1,7 +1,7 @@
 #! /bin/sh -e
 # tup - A file-based build system
 #
-# Copyright (C) 2009-2021  Mike Shal <marfey@gmail.com>
+# Copyright (C) 2009-2024  Mike Shal <marfey@gmail.com>
 #
 # This program is free software; you can redistribute it and/or modify
 # it under the terms of the GNU General Public License version 2 as
@@ -25,17 +25,17 @@ include bar/Install.tup
 : foreach \$(input) |> cp %f %o |> %B.o
 HERE
 
-tmkdir foo
+mkdir foo
 cat > foo/Install.tup << HERE
 input += foo/sball
 HERE
 
-tmkdir bar
+mkdir bar
 cat > bar/Install.tup << HERE
 input += bar/tab
 HERE
 
-tup touch foo/Install.tup bar/Install.tup Tupfile foo/sball bar/tab
+touch foo/sball bar/tab
 parse
 tup_object_exist . sball.o tab.o
 

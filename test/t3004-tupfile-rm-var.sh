@@ -1,7 +1,7 @@
 #! /bin/sh -e
 # tup - A file-based build system
 #
-# Copyright (C) 2009-2021  Mike Shal <marfey@gmail.com>
+# Copyright (C) 2009-2024  Mike Shal <marfey@gmail.com>
 #
 # This program is free software; you can redistribute it and/or modify
 # it under the terms of the GNU General Public License version 2 as
@@ -20,7 +20,7 @@
 # dependency on the directory.
 
 . ./tup.sh
-tmkdir tmp
+mkdir tmp
 cat > tmp/Tupfile << HERE
 file-y = foo.c
 file-@(BAR) += bar.c
@@ -28,7 +28,6 @@ file-@(BAR) += bar.c
 HERE
 echo hey > tmp/foo.c
 echo yo > tmp/bar.c
-tup touch tmp/foo.c tmp/bar.c tmp/Tupfile
 varsetall BAR=y
 update
 tup_object_exist tmp foo.c bar.c
@@ -40,7 +39,6 @@ cat > tmp/Tupfile << HERE
 file-y = foo.c
 : foreach \$(file-y) |> cat %f > %o |> %B.o
 HERE
-tup touch tmp/Tupfile
 update
 tup_object_exist tmp foo.c bar.c
 tup_object_exist tmp "cat foo.c > foo.o"

@@ -3,7 +3,7 @@
 -- tup - A file-based build system
 --
 -- Copyright (C) 2013  Rendaw <rendaw@zarbosoft.com>
--- Copyright (C) 2013-2021  Mike Shal <marfey@gmail.com>
+-- Copyright (C) 2013-2024  Mike Shal <marfey@gmail.com>
 --
 -- This program is free software; you can redistribute it and/or modify
 -- it under the terms of the GNU General Public License version 2 as
@@ -90,7 +90,7 @@ tup.frule = function(arguments)
 		end
 		arguments.outputs = tableize(arguments.outputs)
 	end
-	rc = tup.definerule(arguments)
+	local rc = tup.definerule(arguments)
 	return rc
 end
 
@@ -154,6 +154,15 @@ tup.foreach_rule = function(a, b, c)
 	return tup.frule{ inputs = inputs, command = command, outputs = outputs, foreach = 1}
 end
 
+tup_table_meta = {
+	__tostring = function(t)
+		return table.concat(t, ' ')
+	end,
+	__concat = function(a, b)
+		return tostring(a) .. tostring(b)
+	end,
+}
+
 -- This function is called when we do 'a += b' in a Tupfile.lua. It works
 -- if a and b are strings, tables, or nils, and always makes a result that
 -- is an array of strings.
@@ -179,5 +188,54 @@ tup_append_assignment = function(a, b)
 	else
 		error '+= operator only works when the value is a table or string'
 	end
+	setmetatable(result, tup_table_meta)
 	return result
 end
+
+-- "Global" variables from parsing a Tupfile are put into tupvars instead of _G
+-- to avoid cross-Tupfile pollution. Since we might stop parsing a Tupfile
+-- partway through in order to parse a dependent Tupfile, there is a stack of
+-- active Tupfiles in tupvars.
+
+local tupvars = {}
+local top
+tup_push_state = function()
+	local state = {}
+	table.insert(tupvars, state)
+	top = state
+end
+
+tup_pop_state = function()
+	table.remove(tupvars)
+	top = tupvars[#tupvars]
+end
+
+tup_get_var = function(var)
+	return top[var]
+end
+
+tup_set_var = function(var, value)
+	top[var] = value
+end
+
+-- The tup_environ overrides _ENV when parsing a lua Tupfile. This is used to
+-- cause global variable access to go into tupvars instead of _G. We can still
+-- read from _G of course, for things like the 'tup' functions or other
+-- standard lua functions (eg: string, math, etc).
+
+tup_environ = {}
+setmetatable(tup_environ, {
+	__newindex = function(t, k, v)
+		top[k] = v
+	end,
+	__index = function(t, k)
+		if k == '_G' then
+			return tup_environ
+		end
+		local v = top[k]
+		if v ~= nil then
+			return v
+		end
+		return rawget(_G, k)
+	end
+})

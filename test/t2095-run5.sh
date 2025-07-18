@@ -1,7 +1,7 @@
 #! /bin/sh -e
 # tup - A file-based build system
 #
-# Copyright (C) 2011-2021  Mike Shal <marfey@gmail.com>
+# Copyright (C) 2011-2024  Mike Shal <marfey@gmail.com>
 #
 # This program is free software; you can redistribute it and/or modify
 # it under the terms of the GNU General Public License version 2 as
@@ -29,11 +29,11 @@ for i in sub/*.[co]; do
 done
 HERE
 
-tmkdir sub
+mkdir sub
 cat > sub/Tupfile << HERE
 : foreach *.c |> gcc -c %f -o %o |> %B.o
 HERE
-tup touch Tupfile ok.sh sub/foo.c sub/bar.c
+touch sub/foo.c sub/bar.c
 update_fail_msg 'Fuse server reported an access violation'
 
 # TODO: Allow readdir() to parse subdirs automatically? Would cause a loop

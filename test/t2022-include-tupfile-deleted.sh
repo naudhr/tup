@@ -1,7 +1,7 @@
 #! /bin/sh -e
 # tup - A file-based build system
 #
-# Copyright (C) 2009-2021  Mike Shal <marfey@gmail.com>
+# Copyright (C) 2009-2024  Mike Shal <marfey@gmail.com>
 #
 # This program is free software; you can redistribute it and/or modify
 # it under the terms of the GNU General Public License version 2 as
@@ -24,25 +24,22 @@ include yo/Install.tup
 : |> echo foo |>
 HERE
 
-tmkdir yo
+mkdir yo
 cat > yo/Install.tup << HERE
 : |> echo bar |>
 HERE
 
-tup touch yo/Install.tup Tupfile
 update
 tup_object_exist . 'echo foo'
 tup_object_exist . 'echo bar'
 
 rm yo/Install.tup
-tup rm yo/Install.tup
 rmdir yo
-tup rm yo
 
 cat > Tupfile << HERE
 : |> echo foo |>
 HERE
-# Note: Do not 'tup touch Tupfile' - want to see if rming Install.tup causes it
+# Note: Do not 'touch Tupfile' - want to see if rming Install.tup causes it
 # to be re-parsed. But I also want to parse it successfully so I can see the
 # command gets removed.
 

@@ -1,7 +1,7 @@
 #! /bin/sh -e
 # tup - A file-based build system
 #
-# Copyright (C) 2012-2021  Mike Shal <marfey@gmail.com>
+# Copyright (C) 2012-2024  Mike Shal <marfey@gmail.com>
 #
 # This program is free software; you can redistribute it and/or modify
 # it under the terms of the GNU General Public License version 2 as
@@ -25,14 +25,13 @@ check_no_windows shell
 cat > Tupfile << HERE
 : |> gcc -c foo.c |> foo.o
 HERE
-tup touch Tupfile foo.c
+touch foo.c
 update
 
 cat > Tupfile << HERE
 : |> if [ -f 'gcc -c foo.c' ]; then true; fi; touch out.txt |> out.txt
 : |> gcc -c foo.c |> foo.o
 HERE
-tup touch Tupfile
 update_fail_msg "tup error: Attempted to read from a file with the same name.*gcc -c foo.c"
 
 eotup

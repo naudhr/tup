@@ -2,7 +2,7 @@
  *
  * tup - A file-based build system
  *
- * Copyright (C) 2009-2021  Mike Shal <marfey@gmail.com>
+ * Copyright (C) 2009-2024  Mike Shal <marfey@gmail.com>
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 as
@@ -200,7 +200,7 @@ static int full_scan_dir(struct tent_list_head *head, int dfd, tupid_t dt)
 	tent_list_foreach(tl, head) {
 		struct tup_entry *tent = tl->tent;
 		int new_dfd = -1;
-		time_t mtime = -1;
+		struct timespec mtime = INVALID_MTIME;
 		int scan_subdir = 0;
 
 		if(tent->dt != dt)
@@ -255,8 +255,8 @@ static int full_scan_dir(struct tent_list_head *head, int dfd, tupid_t dt)
 			}
 		}
 
-		if(mtime != tent->mtime) {
-			log_debug_tent("Update external", tent, ", oldmtime=%li, newmtime=%li\n", tent->mtime, mtime);
+		if(!MTIME_EQ(tent->mtime, mtime)) {
+			log_debug_tent("Update external", tent, ", oldmtime=%li.%li, newmtime=%li.%li\n", tent->mtime.tv_sec, tent->mtime.tv_nsec, mtime.tv_sec, mtime.tv_nsec);
 
 			scan_subdir = 1;
 			/* Mark the commands as modify rather than the ghost node, since we don't

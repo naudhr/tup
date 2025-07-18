@@ -1,7 +1,7 @@
 #! /bin/sh -e
 # tup - A file-based build system
 #
-# Copyright (C) 2016-2021  Mike Shal <marfey@gmail.com>
+# Copyright (C) 2016-2024  Mike Shal <marfey@gmail.com>
 #
 # This program is free software; you can redistribute it and/or modify
 # it under the terms of the GNU General Public License version 2 as
@@ -23,18 +23,17 @@
 cat > Tupfile << HERE
 : foreach *.txt |> !tup_ln |> %B.lnk
 HERE
-tmkdir build
+mkdir build
 echo foo > foo.txt
 echo bar > bar.txt
-tup touch foo.txt bar.txt build/tup.config
+touch build/tup.config
 
-tmkdir sub
+mkdir sub
 cat > sub/Tupfile << HERE
 : foreach *.txt |> !tup_ln |> %B.lnk
 HERE
 echo baz > sub/baz.txt
 echo blah > sub/blah.txt
-tup touch sub/baz.txt sub/blah.txt
 update
 
 tup_dep_exist build "$(tup_ln_cmd foo.txt build/foo.lnk)" build foo.lnk

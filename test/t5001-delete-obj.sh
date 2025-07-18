@@ -1,7 +1,7 @@
 #! /bin/sh -e
 # tup - A file-based build system
 #
-# Copyright (C) 2008-2021  Mike Shal <marfey@gmail.com>
+# Copyright (C) 2008-2024  Mike Shal <marfey@gmail.com>
 #
 # This program is free software; you can redistribute it and/or modify
 # it under the terms of the GNU General Public License version 2 as
@@ -21,7 +21,6 @@ cp ../testTupfile.tup Tupfile
 
 echo "int main(void) {return 0;}" > foo.c
 echo "void bar1(void) {}" > bar.c
-tup touch foo.c bar.c
 update
 sym_check foo.o main
 sym_check bar.o bar1
@@ -29,13 +28,11 @@ sym_check prog.exe main bar1
 
 # When bar.o is deleted, it should be re-generated
 rm bar.o
-tup rm bar.o
 update
 sym_check bar.o bar1
 
 # Similar for prog.exe
 rm prog.exe
-tup rm prog.exe
 update
 sym_check prog.exe main bar1
 

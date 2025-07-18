@@ -1,7 +1,7 @@
 #! /bin/sh -e
 # tup - A file-based build system
 #
-# Copyright (C) 2009-2021  Mike Shal <marfey@gmail.com>
+# Copyright (C) 2009-2024  Mike Shal <marfey@gmail.com>
 #
 # This program is free software; you can redistribute it and/or modify
 # it under the terms of the GNU General Public License version 2 as
@@ -38,7 +38,6 @@ generated_headers = foo.h
 : errors.o |> gcc %f -o %o |> errors2
 HERE
 echo 'int main(void) {return 0;}' > errors.c
-tup touch errors.c Tupfile
 update_fail_msg "Unable to create output file 'errors.o'"
 
 eotup

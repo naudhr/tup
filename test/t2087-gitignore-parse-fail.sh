@@ -1,7 +1,7 @@
 #! /bin/sh -e
 # tup - A file-based build system
 #
-# Copyright (C) 2011-2021  Mike Shal <marfey@gmail.com>
+# Copyright (C) 2011-2024  Mike Shal <marfey@gmail.com>
 #
 # This program is free software; you can redistribute it and/or modify
 # it under the terms of the GNU General Public License version 2 as
@@ -21,7 +21,7 @@
 
 . ./tup.sh
 
-tmkdir sub
+mkdir sub
 cat > Tupfile << HERE
 : sub/foo.c |> echo %f |>
 : bork
@@ -30,13 +30,12 @@ cat > sub/Tupfile << HERE
 .gitignore
 : |> touch %o |> hey
 HERE
-tup touch Tupfile sub/Tupfile sub/foo.c
+touch sub/foo.c
 update_fail_msg 'Error parsing Tupfile'
 
 cat > Tupfile << HERE
 : sub/foo.c |> echo %f |>
 HERE
-tup touch Tupfile
 update
 
 eotup

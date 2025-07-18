@@ -1,7 +1,7 @@
 #! /bin/sh -e
 # tup - A file-based build system
 #
-# Copyright (C) 2009-2021  Mike Shal <marfey@gmail.com>
+# Copyright (C) 2009-2024  Mike Shal <marfey@gmail.com>
 #
 # This program is free software; you can redistribute it and/or modify
 # it under the terms of the GNU General Public License version 2 as
@@ -19,11 +19,10 @@
 # Same as t5027, only the file we stomp is in a different directory.
 . ./tup.sh
 
-tmkdir sub
+mkdir sub
 cat > sub/Tupfile << HERE
 : |> echo foo > %o |> file1
 HERE
-tup touch sub/Tupfile
 update
 echo foo | diff - sub/file1
 
@@ -31,13 +30,11 @@ echo foo | diff - sub/file1
 cat > Tupfile << HERE
 : |> echo bar > sub/file1 ; touch file2 |> file2
 HERE
-tup touch Tupfile
 update_fail
 
 cat > Tupfile << HERE
 : |> echo bar > %o |> file2
 HERE
-tup touch Tupfile
 update
 echo foo | diff - sub/file1
 echo bar | diff - file2

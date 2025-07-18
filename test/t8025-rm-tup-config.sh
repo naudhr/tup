@@ -1,7 +1,7 @@
 #! /bin/sh -e
 # tup - A file-based build system
 #
-# Copyright (C) 2012-2021  Mike Shal <marfey@gmail.com>
+# Copyright (C) 2012-2024  Mike Shal <marfey@gmail.com>
 #
 # This program is free software; you can redistribute it and/or modify
 # it under the terms of the GNU General Public License version 2 as
@@ -20,8 +20,8 @@
 # uses an @-variable, just those that would be affected by the change.
 . ./tup.sh
 
-tmkdir foo
-tmkdir bar
+mkdir foo
+mkdir bar
 cat > foo/Tupfile << HERE
 ifeq (@(FOO),y)
 : |> touch %o |> foo
@@ -33,7 +33,6 @@ ifeq (@(BAR),y)
 endif
 HERE
 echo "CONFIG_FOO=y" > tup.config
-tup touch foo/Tupfile bar/Tupfile
 update
 
 rm tup.config

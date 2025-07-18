@@ -1,7 +1,7 @@
 #! /bin/sh -e
 # tup - A file-based build system
 #
-# Copyright (C) 2011-2021  Mike Shal <marfey@gmail.com>
+# Copyright (C) 2011-2024  Mike Shal <marfey@gmail.com>
 #
 # This program is free software; you can redistribute it and/or modify
 # it under the terms of the GNU General Public License version 2 as
@@ -20,7 +20,7 @@
 . ./tup.sh
 check_no_windows run-script
 
-tmkdir sub
+mkdir sub
 cat > sub/gen.sh << HERE
 #! /bin/sh
 for i in *.c; do
@@ -31,7 +31,7 @@ chmod +x sub/gen.sh
 cat > sub/Tupfile << HERE
 run ./gen.sh
 HERE
-tup touch sub/Tupfile sub/gen.sh sub/foo.c sub/bar.c
+touch sub/foo.c sub/bar.c
 update
 
 check_exist sub/foo.o sub/bar.o
@@ -40,7 +40,6 @@ check_exist sub/foo.o sub/bar.o
 cat > sub/gen.sh << HERE
 #! /bin/sh
 HERE
-tup touch sub/gen.sh
 update
 
 check_not_exist sub/foo.o sub/bar.o
@@ -49,7 +48,6 @@ tup_dep_exist sub gen.sh . sub
 # Now don't call gen.sh and make sure the dependency on the directory is gone.
 cat > sub/Tupfile << HERE
 HERE
-tup touch sub/Tupfile
 update
 
 tup_dep_no_exist sub gen.sh . sub

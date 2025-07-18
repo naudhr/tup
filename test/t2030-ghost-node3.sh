@@ -1,7 +1,7 @@
 #! /bin/sh -e
 # tup - A file-based build system
 #
-# Copyright (C) 2009-2021  Mike Shal <marfey@gmail.com>
+# Copyright (C) 2009-2024  Mike Shal <marfey@gmail.com>
 #
 # This program is free software; you can redistribute it and/or modify
 # it under the terms of the GNU General Public License version 2 as
@@ -27,7 +27,6 @@ cat > Tupfile << HERE
 : |> ./ok.sh > %o |> output.txt
 HERE
 chmod +x ok.sh
-tup touch ok.sh Tupfile
 update
 tup_object_exist . ghost
 echo nofile | diff output.txt -
@@ -37,7 +36,6 @@ cat > Tupfile << HERE
 : |> ./ok.sh > %o |> output.txt
 : foreach g* |> cat %f |>
 HERE
-tup touch Tupfile
 parse
 tup_object_no_exist . 'cat ghost'
 update
@@ -47,7 +45,6 @@ cat > Tupfile << HERE
 : |> ./ok.sh > %o |> output.txt
 : ghost |> cat %f |>
 HERE
-tup touch Tupfile
 parse_fail_msg "Explicitly named file 'ghost' is a ghost file, so it can't be used as an input"
 
 eotup

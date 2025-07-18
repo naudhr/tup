@@ -1,7 +1,7 @@
 #! /bin/sh -e
 # tup - A file-based build system
 #
-# Copyright (C) 2009-2021  Mike Shal <marfey@gmail.com>
+# Copyright (C) 2009-2024  Mike Shal <marfey@gmail.com>
 #
 # This program is free software; you can redistribute it and/or modify
 # it under the terms of the GNU General Public License version 2 as
@@ -62,7 +62,6 @@ cat > Tupfile << HERE
 HERE
 echo "A" > A.java
 echo "B" > B.java
-tup touch A.java B.java Tupfile
 update
 check_exist A.class B.class
 echo 'B' | diff - B.class
@@ -72,7 +71,6 @@ cat > Tupfile << HERE
 : B.java |> cat %f > %o |> B.o
 : A.java |> sleep 0.5; (if ./mls | grep B.class > /dev/null; then echo "Using B.class"; cat B.class; else echo "Using B.java"; cat B.java; fi; cat %f) > %o |> A.o
 HERE
-tup touch Tupfile
 update
 check_not_exist A.class B.class
 check_exist A.o B.o

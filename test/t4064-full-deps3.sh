@@ -1,7 +1,7 @@
 #! /bin/sh -e
 # tup - A file-based build system
 #
-# Copyright (C) 2012-2021  Mike Shal <marfey@gmail.com>
+# Copyright (C) 2012-2024  Mike Shal <marfey@gmail.com>
 #
 # This program is free software; you can redistribute it and/or modify
 # it under the terms of the GNU General Public License version 2 as
@@ -35,7 +35,7 @@ cleanup()
 	cd - > /dev/null
 }
 
-trap cleanup INT TERM
+trap cleanup EXIT INT TERM
 cleanup
 mkdir $tmpdir
 
@@ -44,7 +44,6 @@ echo 'hey' > $tmpdir/tmpfile
 cat > Tupfile << HERE
 : |> ^ Read tmpfile^ if [ -f $tmpdir/tmpfile ]; then cat $tmpdir/tmpfile; else echo nofile; fi > %o |> out.txt
 HERE
-tup touch Tupfile
 update
 echo 'hey' | diff - out.txt
 
@@ -56,7 +55,5 @@ mkdir $tmpdir
 echo 'yo' > $tmpdir/tmpfile
 update
 echo 'yo' | diff - out.txt
-
-cleanup
 
 eotup

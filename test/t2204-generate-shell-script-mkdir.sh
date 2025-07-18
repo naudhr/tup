@@ -1,7 +1,7 @@
 #! /bin/sh -e
 # tup - A file-based build system
 #
-# Copyright (C) 2014-2021  Mike Shal <marfey@gmail.com>
+# Copyright (C) 2014-2024  Mike Shal <marfey@gmail.com>
 #
 # This program is free software; you can redistribute it and/or modify
 # it under the terms of the GNU General Public License version 2 as
@@ -37,7 +37,7 @@ generate $generate_script_name
 ./$generate_script_name
 check_exist sub1/out/dir/foo.txt sub1/out/bar.txt sub1/out/dir/baz.txt
 
-if ! grep '^mkdir' $generate_script_name | wc -l | grep 2 > /dev/null; then
+if [ "$(grep -c '^mkdir' $generate_script_name)" != 2 ]; then
 	echo "Error: Generated script should have 2 mkdirs" 1>&2
 	exit 1
 fi

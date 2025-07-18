@@ -1,7 +1,7 @@
 #! /bin/sh -e
 # tup - A file-based build system
 #
-# Copyright (C) 2011-2021  Mike Shal <marfey@gmail.com>
+# Copyright (C) 2011-2024  Mike Shal <marfey@gmail.com>
 #
 # This program is free software; you can redistribute it and/or modify
 # it under the terms of the GNU General Public License version 2 as
@@ -38,7 +38,6 @@ endif
 endif
 endif
 HERE
-tup touch Tupfile
 parse
 
 cat > Tupfile << HERE
@@ -61,7 +60,6 @@ endif
 endif
 endif
 HERE
-tup touch Tupfile
 parse_fail_msg "too many nested if statements"
 
 eotup

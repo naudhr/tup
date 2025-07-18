@@ -1,7 +1,7 @@
 #! /bin/sh -e
 # tup - A file-based build system
 #
-# Copyright (C) 2016-2021  Mike Shal <marfey@gmail.com>
+# Copyright (C) 2016-2024  Mike Shal <marfey@gmail.com>
 #
 # This program is free software; you can redistribute it and/or modify
 # it under the terms of the GNU General Public License version 2 as
@@ -25,7 +25,7 @@ EXT_txt = out
 EXT_src = obj
 : foreach *.src *.txt |> cp %f %o |> %B.\$(EXT_%e)
 HERE
-tup touch foo.txt bar.txt baz.src
+touch foo.txt bar.txt baz.src
 update
 tup_object_exist . foo.out
 tup_object_exist . bar.out

@@ -2,7 +2,7 @@
  *
  * tup - A file-based build system
  *
- * Copyright (C) 2008-2021  Mike Shal <marfey@gmail.com>
+ * Copyright (C) 2008-2024  Mike Shal <marfey@gmail.com>
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 as
@@ -90,7 +90,6 @@ static int eval_eq(struct tupfile *tf, char *expr, char *eol);
 static int error_directive(struct tupfile *tf, char *cmdline);
 static int preload(struct tupfile *tf, char *cmdline);
 static int run_script(struct tupfile *tf, char *cmdline, int lno);
-static int remove_tup_gitignore(struct tupfile *tf, struct tup_entry *tent);
 static int gitignore(struct tupfile *tf, struct tup_entry *dtent);
 static int check_toplevel_gitignore(struct tupfile *tf);
 static int parse_rule(struct tupfile *tf, char *p, int lno);
@@ -107,7 +106,7 @@ static int split_input_pattern(struct tupfile *tf, char *p, char **o_input,
 			       char **o_bin);
 static int parse_input_pattern(struct tupfile *tf, char *input_pattern,
 			       struct name_list *inputs,
-			       struct name_list *order_only_inputs,
+			       struct path_list_head *order_only_input_paths,
 			       struct bin_head *bl,
 			       int is_variant_copy);
 static int parse_output_pattern(struct tupfile *tf, char *output_pattern,
@@ -115,11 +114,11 @@ static int parse_output_pattern(struct tupfile *tf, char *output_pattern,
 				struct path_list_head *extra_outputs);
 static int do_rule(struct tupfile *tf, struct rule *r, struct name_list *nl,
 		   const char *ext, int extlen, struct name_list *output_nl);
-static int input_pattern_to_nl(struct tupfile *tf, char *p,
-			       struct name_list *nl, struct bin_head *bl,
-			       int is_variant_copy);
+static int path_list_to_nl(struct tupfile *tf, struct path_list_head *plist,
+			   struct name_list *nl, struct name_list *input_nl,
+			   int is_variant_copy);
 static int get_path_list(struct tupfile *tf, const char *p, struct path_list_head *plist, struct bin_head *bl);
-static int eval_path_list(struct tupfile *tf, struct path_list_head *plist, int allow_nodes);
+static int eval_path_list(struct tupfile *tf, struct path_list_head *plist, struct name_list *input_nl, int expand_nodes);
 static int path_list_fill_dt_pel(struct tupfile *tf, struct path_list *pl, tupid_t dt, int create_output_dirs);
 static int copy_path_list(struct tupfile *tf, struct path_list_head *dest, struct path_list_head *src);
 static int nl_add_path(struct tupfile *tf, struct path_list *pl,
@@ -138,7 +137,13 @@ static char *tup_printf(struct tupfile *tf, const char *cmd, int cmd_len,
 			struct name_list *nl, struct name_list *onl,
 			struct name_list *ooinput_nl,
 			const char *ext, int extlen,
-			const char *extra_command);
+			const char *extra_command,
+			int percpercflag);
+
+enum {
+	NOEXPAND_PERCPERC,
+	EXPAND_PERCPERC,
+};
 
 static int glob_parse(const char *base, int baselen, char *expanded, int *globidx);
 
@@ -181,7 +186,6 @@ int parse(struct node *n, struct graph *g, struct timespan *retts, int refactori
 		perror("tmpfile");
 		return -1;
 	}
-	tf.ls = NULL;
 	tf.luaerror = TUPLUA_NOERROR;
 	tf.use_server = use_server;
 
@@ -219,13 +223,12 @@ int parse(struct node *n, struct graph *g, struct timespan *retts, int refactori
 	tf.g = g;
 	tf.refactoring = refactoring;
 	tf.full_deps = full_deps;
+	tf.including_rules = 0;
 	tf.ign = 0;
 	tf.circular_dep_error = 0;
 	LIST_INIT(&tf.bin_list);
-	if(nodedb_init(&tf.node_db) < 0)
+	if(vardb_init(&tf.node_db) < 0)
 		goto out_server_stop;
-	if(vardb_init(&tf.vdb) < 0)
-		goto out_close_node_db;
 	if(environ_add_defaults(&tf.env_root) < 0)
 		goto out_close_vdb;
 
@@ -271,6 +274,7 @@ int parse(struct node *n, struct graph *g, struct timespan *retts, int refactori
 				goto out_close_dfd;
 		}
 	}
+	push_tupfile(&tf);
 	if(fd >= 0) {
 		int tmprc;
 		tmprc = fslurp_null(fd, &b);
@@ -284,10 +288,13 @@ int parse(struct node *n, struct graph *g, struct timespan *retts, int refactori
 			if(parse_tupfile(&tf, &b, "Tupfile") < 0)
 				goto out_free_bs;
 		} else {
+			if(parse_lua_include_rules(&tf) < 0)
+				goto out_free_bs;
 			if(parse_lua_tupfile(&tf, &b, path) < 0)
 				goto out_free_bs;
 		}
 	}
+	pop_tupfile();
 	if(tf.ign) {
 		if(!tf.variant->root_variant) {
 			if(n->tent->srcid == DOT_DT) {
@@ -311,7 +318,7 @@ int parse(struct node *n, struct graph *g, struct timespan *retts, int refactori
 				fprintf(tf.f, "tup refactoring error: Attempting to remove the .gitignore file.\n");
 				goto out_free_bs;
 			}
-			if(remove_tup_gitignore(&tf, tent) < 0)
+			if(remove_tup_gitignore(tf.f, tf.g, tent) < 0)
 				goto out_free_bs;
 		}
 	}
@@ -324,13 +331,10 @@ out_close_dfd:
 		rc = -1;
 	}
 out_close_vdb:
-	if(vardb_close(&tf.vdb) < 0)
+	if(vardb_close(&tf.node_db) < 0)
 		rc = -1;
-out_close_node_db:
-	if(nodedb_close(&tf.node_db) < 0)
-		rc = -1;
-	bin_list_del(&tf.bin_list);
 out_server_stop:
+	bin_list_del(&tf.bin_list);
 	if(tf.use_server)
 		if(server_parser_stop(&ps) < 0)
 			rc = -1;
@@ -356,7 +360,6 @@ out_server_stop:
 	free_dir_lists(&ps.directories);
 	pthread_mutex_unlock(&ps.lock);
 
-	lua_parser_cleanup(&tf);
 	free_tent_tree(&tf.env_root);
 	free_tupid_tree(&tf.cmd_root);
 	free_tupid_tree(&tf.directory_root);
@@ -400,7 +403,7 @@ static int open_if_entry(struct tupfile *tf, struct tup_entry *dtent, const char
 	if(tup_db_select_tent(dtent, path, &tupfile_tent) < 0)
 		return -1;
 	if(!tupfile_tent) {
-		if(tup_db_node_insert_tent(dtent, path, strlen(path), TUP_NODE_GHOST, -1, -1, &tupfile_tent) < 0) {
+		if(tup_db_node_insert_tent(dtent, path, strlen(path), TUP_NODE_GHOST, INVALID_MTIME, -1, &tupfile_tent) < 0) {
 			fprintf(tf->f, "tup error: Node '%s' doesn't exist and we couldn't create a ghost in directory: ", path);
 			print_tup_entry(tf->f, dtent);
 			fprintf(tf->f, "\n");
@@ -468,7 +471,6 @@ static int open_tupfile(struct tupfile *tf, struct tup_entry *tent,
 		*parser_lua = 1;
 		return 0;
 	}
-	tent = variant_tent_to_srctent(tent);
 	do {
 		int x;
 		strcpy(path + n*3, TUPDEFAULT);
@@ -652,7 +654,7 @@ static int parse_tupfile(struct tupfile *tf, struct buf *b, const char *filename
 			char *file;
 
 			file = line + 8;
-			file = eval(tf, file, ALLOW_NODES);
+			file = eval(tf, file, EXPAND_NODES);
 			if(!file) {
 				rc = -1;
 			} else {
@@ -667,6 +669,8 @@ static int parse_tupfile(struct tupfile *tf, struct buf *b, const char *filename
 			rc = run_script(tf, line+4, lno);
 		} else if(strncmp(line, "export ", 7) == 0) {
 			rc = export(tf, line+7);
+		} else if(strncmp(line, "import ", 7) == 0) {
+			rc = import(tf, line+7, NULL, NULL);
 		} else if(strcmp(line, ".gitignore") == 0) {
 			tf->ign = 1;
 		} else if(line[0] == ':') {
@@ -726,10 +730,10 @@ found_paren:
 	*comma = 0;
 	*paren = 0;
 
-	lval = eval(tf, lval, DISALLOW_NODES);
+	lval = eval(tf, lval, KEEP_NODES);
 	if(!lval)
 		return -1;
-	rval = eval(tf, rval, DISALLOW_NODES);
+	rval = eval(tf, rval, KEEP_NODES);
 	if(!rval) {
 		free(lval);
 		return -1;
@@ -768,7 +772,7 @@ static int var_ifdef(struct tupfile *tf, const char *var)
 static int error_directive(struct tupfile *tf, char *cmdline)
 {
 	char *eval_cmdline;
-	eval_cmdline = eval(tf, cmdline, ALLOW_NODES);
+	eval_cmdline = eval(tf, cmdline, EXPAND_NODES);
 	if(eval_cmdline) {
 		fprintf(tf->f, "Error:\n  ");
 		if(strlen(cmdline)==0) {
@@ -796,6 +800,11 @@ int parser_include_rules(struct tupfile *tf, const char *tuprules)
 	int x;
 	const char dotdotstr[] = {'.', '.', path_sep(), 0};
 
+	if(tf->including_rules) {
+		fprintf(tf->f, "tup error: Unable to call include_rules from within a Tuprules.tup context.\n");
+		return SYNTAX_ERROR;
+	}
+	tf->including_rules = 1;
 	num_dotdots = 0;
 	tent = variant_tent_to_srctent(tf->curtent);
 	while(tent->tnode.tupid != DOT_DT) {
@@ -829,6 +838,7 @@ int parser_include_rules(struct tupfile *tf, const char *tuprules)
 out_free:
 	free(path);
 
+	tf->including_rules = 0;
 	return rc;
 }
 
@@ -926,7 +936,7 @@ static int preload(struct tupfile *tf, char *cmdline)
 	TAILQ_INIT(&plist);
 	if(get_path_list(tf, cmdline, &plist, NULL) < 0)
 		return -1;
-	if(eval_path_list(tf, &plist, ALLOW_NODES) < 0)
+	if(eval_path_list(tf, &plist, NULL, EXPAND_NODES) < 0)
 		return -1;
 
 	/* get_path_list() leaves us with the last path uncompleted (since it
@@ -978,7 +988,7 @@ static int run_script(struct tupfile *tf, char *cmdline, int lno)
 	int rc;
 	char *eval_cmdline;
 
-	eval_cmdline = eval(tf, cmdline, ALLOW_NODES);
+	eval_cmdline = eval(tf, cmdline, EXPAND_NODES);
 	if(!eval_cmdline) {
 		return -1;
 	}
@@ -1022,10 +1032,6 @@ int exec_run_script(struct tupfile *tf, const char *cmdline, int lno)
 	while(p[0]) {
 		char *newline;
 		rslno++;
-		if(p[0] != ':') {
-			fprintf(tf->f, "tup error: run-script line %i is not a :-rule - '%s'\n", rslno, p);
-			goto out_err;
-		}
 		newline = strchr(p, '\n');
 		if(!newline) {
 			fprintf(tf->f, "tup error: Missing newline from :-rule in run script: '%s'\n", p);
@@ -1034,8 +1040,18 @@ int exec_run_script(struct tupfile *tf, const char *cmdline, int lno)
 		*newline = 0;
 		if(debug_run)
 			fprintf(tf->f, "%s\n", p);
-		if(parse_rule(tf, p+1, lno) < 0) {
-			fprintf(tf->f, "tup error: Unable to parse :-rule from run script: '%s'\n", p);
+		if(p[0] == ':') {
+			if(parse_rule(tf, p+1, lno) < 0) {
+				fprintf(tf->f, "tup error: Unable to parse :-rule from run script: '%s'\n", p);
+				goto out_err;
+			}
+		} else if(p[0] == '#' || p[0] == 0) {
+			/* Skip comments and blank lines */
+			if(debug_run) {
+				fprintf(tf->f, "Skipping non :-rule line %i: %s\n", rslno, p);
+			}
+		} else {
+			fprintf(tf->f, "tup error: run-script line %i is not a :-rule - '%s'\n", rslno, p);
 			goto out_err;
 		}
 		p = newline + 1;
@@ -1051,7 +1067,7 @@ out_err:
 
 int export(struct tupfile *tf, const char *cmdline)
 {
-	struct tup_entry *tent = NULL;
+	struct var_entry *ve = NULL;
 
 	if(!cmdline[0]) {
 		fprintf(tf->f, "tup error: Expected environment variable to export.\n");
@@ -1059,19 +1075,73 @@ int export(struct tupfile *tf, const char *cmdline)
 	}
 
 	/* Pull from tup's environment */
-	if(tup_db_findenv(cmdline, &tent) < 0) {
+	if(tup_db_findenv(cmdline, -1, &ve) < 0) {
 		fprintf(tf->f, "tup error: Unable to get tup entry for environment variable '%s'\n", cmdline);
 		return -1;
 	}
-	if(tent_tree_add_dup(&tf->env_root, tent) < 0)
+	if(tent_tree_add_dup(&tf->env_root, ve->tent) < 0)
 		return -1;
+	return 0;
+}
+
+int import(struct tupfile *tf, const char *cmdline, const char **retvar, const char **retval)
+{
+	struct var_entry *ve = NULL;
+	const char *var;
+	const char *default_val = NULL;
+	int varlen = 0;
+
+	if(!cmdline[0]) {
+		fprintf(tf->f, "tup error: Expected environment variable to import.\n");
+		return SYNTAX_ERROR;
+	}
+
+	var = cmdline;
+	const char *p = cmdline;
+	while(*p) {
+		if(*p == '=') {
+			default_val = p + 1;
+			break;
+		}
+		varlen++;
+		p++;
+	}
+
+	/* Pull from tup's environment */
+	if(tup_db_findenv(var, varlen, &ve) < 0) {
+		fprintf(tf->f, "tup error: Unable to get tup entry for environment variable '%.*s'\n", varlen, var);
+		return -1;
+	}
+	if(tent_tree_add_dup(&tf->input_root, ve->tent) < 0)
+		return -1;
+	/* Values in envdb are stored as VAR=value */
+	const char *real_val = ve->value;
+	if(real_val) {
+		while(*real_val) {
+			real_val++;
+			if(*real_val == '=') {
+				real_val++;
+				break;
+			}
+		}
+	} else {
+		real_val = default_val;
+	}
+	if(luadb_set(ve->var.s, real_val) < 0)
+		return -1;
+	if(retvar) {
+		*retvar = ve->var.s;
+	}
+	if(retval) {
+		*retval = real_val;
+	}
 	return 0;
 }
 
 /* If a .gitignore directive is removed, we need to either revert back to the
  * user's explicit .gitignore file, or remove it entirely.
  */
-static int remove_tup_gitignore(struct tupfile *tf, struct tup_entry *tent)
+int remove_tup_gitignore(FILE *err, struct graph *g, struct tup_entry *tent)
 {
 	int dfd;
 	int fdold;
@@ -1089,17 +1159,17 @@ static int remove_tup_gitignore(struct tupfile *tf, struct tup_entry *tent)
 	fdold = openat(dfd, ".gitignore", O_RDONLY);
 	if(fdold < 0) {
 		perror(".gitignore");
-		fprintf(stderr, "tup error: Unable to open gitignore file in directory: ");
-		print_tup_entry(stderr, tent->parent);
-		fprintf(stderr, "\n");
+		fprintf(err, "tup error: Unable to open gitignore file in directory: ");
+		print_tup_entry(err, tent->parent);
+		fprintf(err, "\n");
 		return -1;
 	}
 	fdnew = openat(dfd, ".gitignore.new", O_CREAT | O_WRONLY | O_TRUNC, 0666);
 	if(fdnew < 0) {
 		perror(".gitignore.new");
-		fprintf(stderr, "tup error: Unable to create new gitignore file in directory: ");
-		print_tup_entry(stderr, tent->parent);
-		fprintf(stderr, "\n");
+		fprintf(err, "tup error: Unable to create new gitignore file in directory: ");
+		print_tup_entry(err, tent->parent);
+		fprintf(err, "\n");
 		return -1;
 	}
 	while(1) {
@@ -1116,7 +1186,7 @@ static int remove_tup_gitignore(struct tupfile *tf, struct tup_entry *tent)
 			perror("write");
 			return -1;
 		}
-		bytes_copied += 1;
+		bytes_copied++;
 		if(tg_idx == tg_str_len) {
 			copied_tg_str = 1;
 			break;
@@ -1126,7 +1196,7 @@ static int remove_tup_gitignore(struct tupfile *tf, struct tup_entry *tent)
 		bytes_copied -= tg_str_len;
 		if(ftruncate(fdnew, bytes_copied) < 0) {
 			perror("ftruncate");
-			fprintf(stderr, "tup error: Unable to truncate .gitignore.new file\n");
+			fprintf(err, "tup error: Unable to truncate .gitignore.new file\n");
 			return -1;
 		}
 	}
@@ -1141,21 +1211,21 @@ static int remove_tup_gitignore(struct tupfile *tf, struct tup_entry *tent)
 	if(bytes_copied) {
 		if(renameat(dfd, ".gitignore.new", dfd, ".gitignore") < 0) {
 			perror("renameat");
-			fprintf(stderr, "tup error: Unable to move .gitignore.new file over .gitignore");
+			fprintf(err, "tup error: Unable to move .gitignore.new file over .gitignore");
 			return -1;
 		}
 		if(tup_db_set_type(tent, TUP_NODE_FILE) < 0)
 			return -1;
 		if(tup_db_set_srcid(tent, -1) < 0)
 			return -1;
-		tent_tree_remove(&tf->g->gen_delete_root, tent);
-		tent_tree_remove(&tf->g->save_root, tent);
+		tent_tree_remove(&g->gen_delete_root, tent);
+		tent_tree_remove(&g->save_root, tent);
 	} else {
 		if(unlinkat(dfd, ".gitignore.new", 0) < 0) {
 			perror("unlinkat");
-			fprintf(stderr, "tup error: Unable to unlink .gitignore.new file in directory: ");
-			print_tup_entry(stderr, tent->parent);
-			fprintf(stderr, "\n");
+			fprintf(err, "tup error: Unable to unlink .gitignore.new file in directory: ");
+			print_tup_entry(err, tent->parent);
+			fprintf(err, "\n");
 			return -1;
 		}
 		/* The .gitignore tent is in the delete root, so the updater
@@ -1180,7 +1250,7 @@ static int gitignore(struct tupfile *tf, struct tup_entry *dtent)
 			fprintf(tf->f, "tup refactoring error: Attempting to create a new .gitignore file.\n");
 			return -1;
 		}
-		if(tup_db_node_insert_tent(dtent, ".gitignore", -1, TUP_NODE_GENERATED, -1, dtent->tnode.tupid, &tent) < 0)
+		if(tup_db_node_insert_tent(dtent, ".gitignore", -1, TUP_NODE_GENERATED, INVALID_MTIME, dtent->tnode.tupid, &tent) < 0)
 			return -1;
 	} else {
 		tent_tree_remove(&tf->g->gen_delete_root, tent);
@@ -1209,7 +1279,7 @@ static int check_toplevel_gitignore(struct tupfile *tf)
 	char *p;
 	char *e;
 	char *line;
-	int rc;
+	int rc = -1;
 
 	/* This mimics pieces of include_tuprules and parse_tupfile(), but all
 	 * we're looking for is a .gitignore directive. We don't want to
@@ -1293,7 +1363,6 @@ out_free:
 out_close:
 	if(close(fd) < 0) {
 		parser_error(tf, "close(fd)");
-		rc = -1;
 	}
 	return rc;
 }
@@ -1319,7 +1388,7 @@ int parser_include_file(struct tupfile *tf, const char *file)
 		fprintf(tf->f, "tup error: Unable to include file with hidden path element.\n");
 		goto out_del_pg;
 	}
-	newdt = find_dir_tupid_dt_pg(tf->curtent->tnode.tupid, &pg, &pel, 0, 0);
+	newdt = find_dir_tupid_dt_pg(tf->curtent->tnode.tupid, &pg, &pel, SOTGV_NO_GHOST, 0);
 	if(newdt <= 0) {
 		fprintf(tf->f, "tup error: Unable to find directory for include file '%s' relative to '", file);
 		print_tup_entry(tf->f, tf->curtent);
@@ -1407,6 +1476,7 @@ void init_rule(struct rule *r)
 	init_name_list(&r->inputs);
 	init_name_list(&r->order_only_inputs);
 	init_name_list(&r->bang_oo_inputs);
+	TAILQ_INIT(&r->order_only_input_paths);
 	TAILQ_INIT(&r->outputs);
 	TAILQ_INIT(&r->extra_outputs);
 	TAILQ_INIT(&r->bang_extra_outputs);
@@ -1453,7 +1523,7 @@ static int parse_rule(struct tupfile *tf, char *p, int lno)
 	}
 	if(strcmp(cmd, "!tup_preserve") == 0)
 		is_variant_copy = 1;
-	if(parse_input_pattern(tf, input, &r.inputs, &r.order_only_inputs, &tf->bin_list, is_variant_copy) < 0)
+	if(parse_input_pattern(tf, input, &r.inputs, &r.order_only_input_paths, &tf->bin_list, is_variant_copy) < 0)
 		return -1;
 
 	r.command = cmd;
@@ -1476,6 +1546,7 @@ static int parse_rule(struct tupfile *tf, char *p, int lno)
 	init_name_list(&output_nl);
 	rc = execute_rule(tf, &r, &output_nl);
 	delete_name_list(&output_nl);
+	free_path_list(&r.order_only_input_paths);
 	free_path_list(&r.outputs);
 	free_path_list(&r.extra_outputs);
 	free_path_list(&r.bang_extra_outputs);
@@ -1607,6 +1678,14 @@ static int parse_bang_definition(struct tupfile *tf, char *p, int lno)
 			input += 7;
 			while(isspace(*input)) input++;
 		}
+		if(input[0]) {
+			if(input[0] != '|') {
+				fprintf(tf->f, "tup error: !-macros can't have normal inputs, only order-only inputs. Pattern was: %s\n", input);
+				return -1;
+			}
+			input++;
+			while(isspace(*input)) input++;
+		}
 	}
 
 	st = string_tree_search(&tf->bang_root, p, strlen(p));
@@ -1695,10 +1774,10 @@ static int set_variable(struct tupfile *tf, char *line)
 		eq--;
 	}
 
-	var = eval(tf, line, DISALLOW_NODES);
+	var = eval(tf, line, KEEP_NODES);
 	if(!var)
 		return -1;
-	value = eval(tf, value, DISALLOW_NODES);
+	value = eval(tf, value, KEEP_NODES);
 	if(!value)
 		return -1;
 
@@ -1719,17 +1798,28 @@ static int set_variable(struct tupfile *tf, char *line)
 			fprintf(tf->f, "tup error: Node-variables can only refer to normal files and directories, not a '%s'.\n", tup_db_type(tent->type));
 			return -1;
 		}
+		if(tent_tree_add_dup(&tf->input_root, tent) < 0)
+			return -1;
+
+		free(value);
+		value = malloc(32);
+		if(!value) {
+			perror("malloc");
+			return -1;
+		}
+		snprintf(value, 31, "%%%llit", tent->tnode.tupid);
+		value[31] = 0;
 
 		/* var+1 to skip the leading '&' */
 		if(append)
-			rc = nodedb_append(&tf->node_db, var+1, tent);
+			rc = vardb_append(&tf->node_db, var+1, value);
 		else
-			rc = nodedb_set(&tf->node_db, var+1, tent);
+			rc = vardb_set(&tf->node_db, var+1, value, NULL);
 	} else {
 		if(append)
-			rc = vardb_append(&tf->vdb, var, value);
+			rc = luadb_append(var, value);
 		else
-			rc = vardb_set(&tf->vdb, var, value, NULL);
+			rc = luadb_set(var, value);
 	}
 	if(rc < 0) {
 		fprintf(tf->f, "tup internal error: Error setting variable '%s'\n", var);
@@ -1748,21 +1838,13 @@ static int parse_bang_rule_internal(struct tupfile *tf, struct rule *r,
 
 	/* Add any order only inputs to the list */
 	if(br->input) {
-		char *tinput;
-		if(nl) {
-			tinput = tup_printf(tf, br->input, -1, nl, NULL, NULL, NULL, 0, NULL);
-			if(!tinput)
-				return -1;
-		} else {
-			tinput = strdup(br->input);
-			if(!tinput) {
-				perror("strdup");
-				return -1;
-			}
-		}
-		if(parse_input_pattern(tf, tinput, NULL, &r->bang_oo_inputs, NULL, 0) < 0)
+		struct path_list_head head;
+		TAILQ_INIT(&head);
+		if(get_path_list(tf, br->input, &head, NULL) < 0)
 			return -1;
-		free(tinput);
+		if(path_list_to_nl(tf, &head, &r->bang_oo_inputs, nl, 0) < 0)
+			return -1;
+		free_path_list(&head);
 	}
 
 	/* The command gets replaced whole-sale */
@@ -1943,7 +2025,7 @@ static int split_input_pattern(struct tupfile *tf, char *p, char **o_input,
 
 static int parse_input_pattern(struct tupfile *tf, char *input_pattern,
 			       struct name_list *inputs,
-			       struct name_list *order_only_inputs,
+			       struct path_list_head *order_only_input_paths,
 			       struct bin_head *bl,
 			       int is_variant_copy)
 {
@@ -1965,17 +2047,20 @@ static int parse_input_pattern(struct tupfile *tf, char *input_pattern,
 			*oosep = 0;
 			oosep++;
 		}
-		if(input_pattern_to_nl(tf, oosep, order_only_inputs, bl, is_variant_copy) < 0)
-			return -1;
+		if(order_only_input_paths) {
+			if(get_path_list(tf, oosep, order_only_input_paths, bl) < 0)
+				return -1;
+		}
 	}
 	if(inputs) {
-		if(input_pattern_to_nl(tf, input_pattern, inputs, bl, is_variant_copy) < 0)
+		struct path_list_head plist;
+
+		TAILQ_INIT(&plist);
+		if(get_path_list(tf, input_pattern, &plist, bl) < 0)
 			return -1;
-	} else {
-		if(input_pattern[0]) {
-			fprintf(tf->f, "tup error: bang rules can't have normal inputs, only order-only inputs. Pattern was: %s\n", input_pattern);
+		if(path_list_to_nl(tf, &plist, inputs, NULL, is_variant_copy) < 0)
 			return -1;
-		}
+		free_path_list(&plist);
 	}
 	return 0;
 }
@@ -2108,6 +2193,14 @@ int execute_rule(struct tupfile *tf, struct rule *r, struct name_list *output_nl
 				if(parse_bang_rule(tf, r, &tmp_nl, ext, ext ? strlen(ext) : 0) < 0)
 					return -1;
 			}
+			struct path_list_head tmp_oo_inputs;
+			TAILQ_INIT(&tmp_oo_inputs);
+			if(copy_path_list(tf, &tmp_oo_inputs, &r->order_only_input_paths) < 0)
+				return -1;
+			if(path_list_to_nl(tf, &tmp_oo_inputs, &r->order_only_inputs, &tmp_nl, 0) < 0)
+				return -1;
+			free_path_list(&tmp_oo_inputs);
+
 			if(do_rule(tf, r, &tmp_nl, ext, extlen, output_nl) < 0)
 				return -1;
 
@@ -2123,6 +2216,7 @@ int execute_rule(struct tupfile *tf, struct rule *r, struct name_list *output_nl
 				delete_name_list(&r->bang_oo_inputs);
 			}
 
+			delete_name_list(&r->order_only_inputs);
 			delete_name_list_entry(&r->inputs, nle);
 		}
 	} else {
@@ -2140,6 +2234,8 @@ int execute_rule(struct tupfile *tf, struct rule *r, struct name_list *output_nl
 		 * empty, we won't try to execute do_rule(). But an empty user
 		 * string implies that no input is required.
 		 */
+		if(path_list_to_nl(tf, &r->order_only_input_paths, &r->order_only_inputs, &r->inputs, 0) < 0)
+			return -1;
 		if((r->inputs.num_entries > 0 || r->empty_input)) {
 			if(is_bang) {
 				if(parse_bang_rule(tf, r, NULL, NULL, 0) < 0)
@@ -2169,30 +2265,24 @@ int execute_rule(struct tupfile *tf, struct rule *r, struct name_list *output_nl
 				}
 			}
 		}
+		delete_name_list(&r->order_only_inputs);
 	}
 
-	delete_name_list(&r->order_only_inputs);
 	delete_name_list(&r->bang_oo_inputs);
 
 	return 0;
 }
 
-static int input_pattern_to_nl(struct tupfile *tf, char *p,
-			       struct name_list *nl, struct bin_head *bl,
-			       int is_variant_copy)
+static int path_list_to_nl(struct tupfile *tf, struct path_list_head *plist,
+			   struct name_list *nl, struct name_list *input_nl,
+			   int is_variant_copy)
 {
-	struct path_list_head plist;
-
-	TAILQ_INIT(&plist);
-	if(get_path_list(tf, p, &plist, bl) < 0)
+	if(eval_path_list(tf, plist, input_nl, EXPAND_NODES_SRC) < 0)
 		return -1;
-	if(eval_path_list(tf, &plist, ALLOW_NODES) < 0)
+	if(parse_dependent_tupfiles(plist, tf) < 0)
 		return -1;
-	if(parse_dependent_tupfiles(&plist, tf) < 0)
+	if(get_name_list(tf, plist, nl, is_variant_copy) < 0)
 		return -1;
-	if(get_name_list(tf, &plist, nl, is_variant_copy) < 0)
-		return -1;
-	free_path_list(&plist);
 	return 0;
 }
 
@@ -2216,6 +2306,7 @@ struct path_list *new_pl(struct tupfile *tf, const char *s, int len, struct bin_
 	pl->pel = NULL;
 	pl->bin = NULL;
 	pl->re = NULL;
+	pl->re_match = NULL;
 	memcpy(pl->mem, s, len);
 	pl->mem[len] = 0;
 	pl->orderid = orderid;
@@ -2241,16 +2332,20 @@ struct path_list *new_pl(struct tupfile *tf, const char *s, int len, struct bin_
 			fprintf(tf->f, "tup error: Unable to find bin '%s'\n", p+1);
 			return NULL;
 		}
+		*endb = '}';
 	} else if(p[0] == '^') {
 		/* Exclusion */
-		const char *error;
-		int erroffset;
-		pl->re = pcre_compile(&pl->mem[1], 0, &error, &erroffset, NULL);
+		int error;
+		size_t erroffset;
+		pl->re = pcre2_compile((PCRE2_SPTR)&pl->mem[1], PCRE2_ZERO_TERMINATED, 0, &error, &erroffset, NULL);
 		pl->dt = exclusion_dt();
 		if(!pl->re) {
-			fprintf(tf->f, "tup error: Unable to compile regular expression '%s' at offset %i: %s\n", &pl->mem[1], erroffset, error);
+			PCRE2_UCHAR buffer[256];
+			pcre2_get_error_message(error, buffer, sizeof(buffer));
+			fprintf(tf->f, "tup error: Unable to compile regular expression '%s' at offset %zi: %s\n", &pl->mem[1], erroffset, buffer);
 			return NULL;
 		}
+		pl->re_match = pcre2_match_data_create_from_pattern(pl->re, NULL);
 	} else {
 		/* Path */
 		if(strchr(p, '<') != NULL) {
@@ -2329,7 +2424,7 @@ static int get_path_list(struct tupfile *tf, const char *p, struct path_list_hea
 	return 0;
 }
 
-static int eval_path_list(struct tupfile *tf, struct path_list_head *plist, int allow_nodes)
+static int eval_path_list(struct tupfile *tf, struct path_list_head *plist, struct name_list *input_nl, int expand_nodes)
 {
 	struct path_list *pl;
 	struct path_list *tmp;
@@ -2339,10 +2434,20 @@ static int eval_path_list(struct tupfile *tf, struct path_list_head *plist, int 
 		int spc_index;
 		int last_entry = 0;
 		char *p;
+		char *tinput;
 
-		eval_p = eval(tf, pl->mem, allow_nodes);
+		if(input_nl) {
+			tinput = tup_printf(tf, pl->mem, -1, input_nl, NULL, NULL, NULL, 0, NULL, EXPAND_PERCPERC);
+			if(!tinput)
+				return -1;
+		} else {
+			tinput = pl->mem;
+		}
+		eval_p = eval(tf, tinput, expand_nodes);
 		if(!eval_p)
 			return -1;
+		if(input_nl)
+			free(tinput);
 
 		if(strcmp(eval_p, pl->mem) != 0) {
 			p = eval_p;
@@ -2374,7 +2479,7 @@ skip_empty_space:
 static int path_list_fill_dt_pel(struct tupfile *tf, struct path_list *pl, tupid_t dt, int create_output_dirs)
 {
 	struct pel_group pg;
-	int sotgv = 0;
+	int sotgv = SOTGV_NO_GHOST;
 
 	/* Bins get skipped. */
 	if(pl->bin)
@@ -2440,7 +2545,7 @@ static int copy_path_list(struct tupfile *tf, struct path_list_head *dest, struc
 	TAILQ_FOREACH(pl, src, list) {
 		struct path_list *newpl;
 
-		newpl = new_pl(tf, pl->mem, -1, NULL, pl->orderid);
+		newpl = new_pl(tf, pl->mem, -1, &tf->bin_list, pl->orderid);
 		if(!newpl)
 			return -1;
 		TAILQ_INSERT_TAIL(dest, newpl, list);
@@ -2461,7 +2566,8 @@ void del_pl(struct path_list *pl, struct path_list_head *head)
 {
 	TAILQ_REMOVE(head, pl, list);
 	if(pl->re) {
-		pcre_free(pl->re);
+		pcre2_match_data_free(pl->re_match);
+		pcre2_code_free(pl->re);
 	}
 	free_pel(pl->pel);
 	free(pl);
@@ -2627,13 +2733,13 @@ static int nl_add_path(struct tupfile *tf, struct path_list *pl,
 		if(!tent) {
 			if(tf->full_deps) {
 				struct stat buf;
-				time_t mtime = -1;
+				struct timespec mtime = INVALID_MTIME;
 
 				if(lstat(pl->mem, &buf) == 0) {
 					mtime = MTIME(buf);
 				}
 				if(tup_db_node_insert_tent(dtent, pl->pel->path, pl->pel->len, TUP_NODE_GHOST, mtime, -1, &tent) < 0) {
-					fprintf(stderr, "tup error: Node '%.*s' doesn't exist in directory %lli, and no luck creating a ghost node there.\n", pl->pel->len, pl->pel->path, pl->dt);
+					fprintf(tf->f, "tup error: Node '%.*s' doesn't exist in directory %lli, and no luck creating a ghost node there.\n", pl->pel->len, pl->pel->path, pl->dt);
 					return -1;
 				}
 			} else {
@@ -2651,7 +2757,7 @@ static int nl_add_path(struct tupfile *tf, struct path_list *pl,
 				return -1;
 			}
 		}
-		if(tent->type == TUP_NODE_GHOST && tent->mtime == -1) {
+		if(tent->type == TUP_NODE_GHOST && tent->mtime.tv_sec == -1) {
 			fprintf(tf->f, "tup error: Explicitly named file '%.*s' is a ghost file, so it can't be used as an input.\n", pl->pel->len, pl->pel->path);
 			return -1;
 		}
@@ -2778,10 +2884,10 @@ static int nl_rm_exclusion(struct tupfile *tf, struct path_list *pl, struct name
 	TAILQ_FOREACH_SAFE(nle, &nl->entries, list, tmp) {
 		int rc;
 
-		rc = pcre_exec(pl->re, NULL, nle->path, nle->len, 0, 0, NULL, 0);
-		if(rc == 0) {
+		rc = pcre2_match(pl->re, (PCRE2_SPTR)nle->path, nle->len, 0, 0, pl->re_match, NULL);
+		if(rc >= 0) {
 			delete_name_list_entry(nl, nle);
-		} else if(rc != PCRE_ERROR_NOMATCH) {
+		} else if(rc != PCRE2_ERROR_NOMATCH) {
 			fprintf(tf->f, "tup error: Regex failed to execute: %s\n", &pl->mem[1]);
 			return -1;
 		}
@@ -3014,7 +3120,7 @@ static int find_existing_command(const struct name_list *onl, struct tup_entry *
 }
 
 static int add_input(struct tupfile *tf, struct tent_entries *input_root,
-		     struct tup_entry *tent)
+		     struct tup_entry *tent, int force_normal_file)
 {
 	if(tent->type == TUP_NODE_GENERATED) {
 		struct tent_entries extra_group_root = TENT_ENTRIES_INITIALIZER;
@@ -3043,6 +3149,11 @@ static int add_input(struct tupfile *tf, struct tent_entries *input_root,
 	} else if(tent->type == TUP_NODE_VAR || tent->type == TUP_NODE_GROUP) {
 		if(tent_tree_add_dup(input_root, tent) < 0)
 			return -1;
+	} else if(tent->type == TUP_NODE_FILE) {
+		if(force_normal_file) {
+			if(tent_tree_add_dup(input_root, tent) < 0)
+				return -1;
+		}
 	}
 	return 0;
 }
@@ -3117,13 +3228,12 @@ static int do_rule_outputs(struct tupfile *tf, struct path_list_head *oplist, st
 		flagslen = 0;
 	}
 
-
 	/* first expand any %-flags before eval so things like $(flags_%f) work */
 	TAILQ_FOREACH(pl, oplist, list) {
 		struct path_list *newpl;
 		char *toutput;
 
-		toutput = tup_printf(tf, pl->mem, -1, nl, use_onl, NULL, ext, extlen, NULL);
+		toutput = tup_printf(tf, pl->mem, -1, nl, use_onl, NULL, ext, extlen, NULL, NOEXPAND_PERCPERC);
 		if(!toutput)
 			return -1;
 		newpl = new_pl(tf, toutput, -1, NULL, pl->orderid);
@@ -3134,7 +3244,7 @@ static int do_rule_outputs(struct tupfile *tf, struct path_list_head *oplist, st
 	}
 
 	/* Then eval the list so all $-variables are expanded */
-	if(eval_path_list(tf, &tmplist, DISALLOW_NODES) < 0)
+	if(eval_path_list(tf, &tmplist, NULL, EXPAND_NODES_SRC) < 0)
 		return -1;
 
 	/* Use tup_printf again in case $-variables reference %-flags.
@@ -3145,7 +3255,7 @@ static int do_rule_outputs(struct tupfile *tf, struct path_list_head *oplist, st
 		struct path_list *newpl;
 		char *toutput;
 
-		toutput = tup_printf(tf, pl->mem, -1, nl, use_onl, NULL, ext, extlen, NULL);
+		toutput = tup_printf(tf, pl->mem, -1, nl, use_onl, NULL, ext, extlen, NULL, EXPAND_PERCPERC);
 		if(!toutput)
 			return -1;
 		newpl = new_pl(tf, toutput, -1, NULL, pl->orderid);
@@ -3310,7 +3420,7 @@ struct command_split {
 	const char *cmd;
 };
 
-static int split_command_string(const char *cmd, struct command_split *cs)
+static int split_command_string(struct tupfile *tf, const char *cmd, struct command_split *cs)
 {
 	cs->flags = "";
 	cs->flagslen = 0;
@@ -3324,7 +3434,7 @@ static int split_command_string(const char *cmd, struct command_split *cs)
 			cs->flags = s;
 			do {
 				if(!*s) {
-					fprintf(stderr, "tup error: Missing ending '^' flag in command string: %s\n", cmd);
+					fprintf(tf->f, "tup error: Missing ending '^' flag in command string: %s\n", cmd);
 					return -1;
 				}
 				if(*s == ' ')
@@ -3346,7 +3456,7 @@ static int split_command_string(const char *cmd, struct command_split *cs)
 			cs->display = s;
 			do {
 				if(!*s) {
-					fprintf(stderr, "tup error: Missing ending '^' flag in command string: %s\n", cmd);
+					fprintf(tf->f, "tup error: Missing ending '^' flag in command string: %s\n", cmd);
 					return -1;
 				}
 				if(s[0] == '^')
@@ -3401,7 +3511,7 @@ static int do_rule(struct tupfile *tf, struct rule *r, struct name_list *nl,
 		return 0;
 	}
 
-	if(split_command_string(r->command, &cs) < 0)
+	if(split_command_string(tf, r->command, &cs) < 0)
 		return -1;
 	if(memchr(cs.flags, 't', cs.flagslen) != NULL)
 		transient_outputs = 1;
@@ -3442,16 +3552,16 @@ static int do_rule(struct tupfile *tf, struct rule *r, struct name_list *nl,
 		}
 	}
 
-	tcmd = tup_printf(tf, cs.cmd, -1, nl, &onl, &r->order_only_inputs, ext, extlen, r->extra_command);
+	tcmd = tup_printf(tf, cs.cmd, -1, nl, &onl, &r->order_only_inputs, ext, extlen, r->extra_command, EXPAND_PERCPERC);
 	if(!tcmd)
 		return -1;
-	cmd = eval(tf, tcmd, ALLOW_NODES);
+	cmd = eval(tf, tcmd, EXPAND_NODES);
 	if(!cmd)
 		return -1;
 	free(tcmd);
 
 	if(cs.display) {
-		real_display = tup_printf(tf, cs.display, cs.displaylen, nl, &onl, &r->order_only_inputs, ext, extlen, NULL);
+		real_display = tup_printf(tf, cs.display, cs.displaylen, nl, &onl, &r->order_only_inputs, ext, extlen, NULL, EXPAND_PERCPERC);
 		if(!real_display)
 			return -1;
 		real_displaylen = strlen(real_display);
@@ -3566,21 +3676,21 @@ static int do_rule(struct tupfile *tf, struct rule *r, struct name_list *nl,
 
 	TAILQ_FOREACH(nle, &nl->entries, list) {
 		if(nle->tent)
-			if(add_input(tf, &input_root, nle->tent) < 0)
+			if(add_input(tf, &input_root, nle->tent, 1) < 0)
 				return -1;
 	}
 	TAILQ_FOREACH(nle, &r->order_only_inputs.entries, list) {
 		if(nle->tent)
-			if(add_input(tf, &input_root, nle->tent) < 0)
+			if(add_input(tf, &input_root, nle->tent, 0) < 0)
 				return -1;
 	}
 	TAILQ_FOREACH(nle, &r->bang_oo_inputs.entries, list) {
 		if(nle->tent)
-			if(add_input(tf, &input_root, nle->tent) < 0)
+			if(add_input(tf, &input_root, nle->tent, 0) < 0)
 				return -1;
 	}
 	RB_FOREACH(tt, tent_entries, &tf->env_root) {
-		if(add_input(tf, &input_root, tt->tent) < 0)
+		if(add_input(tf, &input_root, tt->tent, 0) < 0)
 			return -1;
 	}
 	if(group) {
@@ -3735,7 +3845,8 @@ static char *tup_printf(struct tupfile *tf, const char *cmd, int cmd_len,
 			struct name_list *nl, struct name_list *onl,
 			struct name_list *ooinput_nl,
 			const char *ext, int extlen,
-			const char *extra_command)
+			const char *extra_command,
+			int expand_percperc)
 {
 	struct name_list_entry *nle;
 	const char *p;
@@ -3872,7 +3983,7 @@ static char *tup_printf(struct tupfile *tf, const char *cmd, int cmd_len,
 						estring_append(&e, " ", 1);
 					}
 					estring_append(&e, next, 1);
-					estring_append(&e, nle->path, nle->len);
+					estring_append_escape(&e, nle->path, nle->len, *next);
 					estring_append(&e, next, 1);
 					first = 0;
 				}
@@ -3891,7 +4002,7 @@ static char *tup_printf(struct tupfile *tf, const char *cmd, int cmd_len,
 						estring_append(&e, " ", 1);
 					}
 					estring_append(&e, next, 1);
-					estring_append(&e, nle->path, nle->len);
+					estring_append_escape(&e, nle->path, nle->len, *next);
 					estring_append(&e, next, 1);
 					first = 0;
 				}
@@ -3963,7 +4074,10 @@ static char *tup_printf(struct tupfile *tf, const char *cmd, int cmd_len,
 				fprintf(tf->f, "tup error: Failed to run strtol on %%-flag with a number.\n");
 				return NULL;
 			}
-			if(num <= 0 || num >= 99) {
+			/* Bounds-check the %-flag number, except for node
+			 * references (%Nt) which use an internal tup id.
+			 */
+			if((num <= 0 || num >= 99) && *endp != 't') {
 				fprintf(tf->f, "tup error: Expected number from 1-99 (base 10) for %%-flag, but got %i\n", num);
 				return NULL;
 			}
@@ -3980,27 +4094,36 @@ static char *tup_printf(struct tupfile *tf, const char *cmd, int cmd_len,
 					return NULL;
 				}
 				tmpnl = ooinput_nl;
+			} else if(*endp == 't') {
+				/* Skip node references here, they are
+				 * resolved in eval(). Just store the %Nt
+				 * string back in the output.
+				 */
+				estring_append(&e, "%%", 1);
+				estring_append(&e, next, endp-next + 1);
 			} else {
 				fprintf(tf->f, "tup error: Expected 'f', 'b', 'B', 'o', or 'i' after number in %%%i-flag, but got '%c'\n", num, *endp);
 				return NULL;
 			}
-			TAILQ_FOREACH(nle, &tmpnl->entries, list) {
-				if(nle->orderid == num) {
-					if(!first && estring_append(&e, " ", 1) < 0)
-						return NULL;
-					int err;
-					if(*endp == 'B') {
-						err = estring_append(&e, nle->base, nle->extlessbaselen);
-					} else if(*endp == 'b') {
-						err = estring_append(&e, nle->base, nle->baselen);
-					} else {
-						err = estring_append(&e, nle->path, nle->len);
+			if(tmpnl) {
+				TAILQ_FOREACH(nle, &tmpnl->entries, list) {
+					if(nle->orderid == num) {
+						if(!first && estring_append(&e, " ", 1) < 0)
+							return NULL;
+						int err;
+						if(*endp == 'B') {
+							err = estring_append(&e, nle->base, nle->extlessbaselen);
+						} else if(*endp == 'b') {
+							err = estring_append(&e, nle->base, nle->baselen);
+						} else {
+							err = estring_append(&e, nle->path, nle->len);
+						}
+						if(err < 0)
+							return NULL;
+						first = 0;
+					} else if(nle->orderid > num) {
+						break;
 					}
-					if(err < 0)
-						return NULL;
-					first = 0;
-				} else if(nle->orderid > num) {
-					break;
 				}
 			}
 
@@ -4012,6 +4135,12 @@ static char *tup_printf(struct tupfile *tf, const char *cmd, int cmd_len,
 			estring_append(&e, "%<", 2);
 		} else if(*next == '%') {
 			estring_append(&e, "%", 1);
+			if(expand_percperc == NOEXPAND_PERCPERC) {
+				/* If we aren't expanding %% into % yet, keep
+				 * it as %% in the output.
+				 */
+				estring_append(&e, "%", 1);
+			}
 		} else {
 			fprintf(tf->f, "tup error: Unknown %%-flag: '%c'\n", *next);
 			return NULL;
@@ -4022,7 +4151,7 @@ static char *tup_printf(struct tupfile *tf, const char *cmd, int cmd_len,
 	if(extra_command) {
 		char *textra;
 
-		textra = tup_printf(tf, extra_command, strlen(extra_command), nl, onl, ooinput_nl, ext, extlen, NULL);
+		textra = tup_printf(tf, extra_command, strlen(extra_command), nl, onl, ooinput_nl, ext, extlen, NULL, EXPAND_PERCPERC);
 		if(!textra)
 			return NULL;
 		estring_append(&e, " ", 1);
@@ -4032,7 +4161,54 @@ static char *tup_printf(struct tupfile *tf, const char *cmd, int cmd_len,
 	return e.s;
 }
 
-char *eval(struct tupfile *tf, const char *string, int allow_nodes)
+static char *expand_node_strings(struct tupfile *tf, const char *string, int expand_nodes)
+{
+	struct estring e;
+	const char *s;
+
+	if(estring_init(&e) < 0)
+		return NULL;
+	s = string;
+	while(*s) {
+		if(*s == '%' && isdigit(s[1])) {
+			char *endp;
+			tupid_t tupid;
+			errno = 0;
+			tupid = strtoll(s+1, &endp, 10);
+			if(!errno && *endp == 't') {
+				/* Internal-only node reference */
+				struct tup_entry *tent;
+				if(tup_entry_add(tupid, &tent) < 0)
+					return NULL;
+
+				/* Inputs & outputs are always given as if
+				 * they're in the srcdir, even if the node
+				 * variable points inside the variantdir due to
+				 * $(TUP_VARIANTDIR).
+				 */
+				if(expand_nodes == EXPAND_NODES_SRC)
+					tent = variant_tent_to_srctent(tent);
+
+				if(get_relative_dir(NULL, &e, variant_tent_to_srctent(tf->curtent)->tnode.tupid, tent->tnode.tupid) < 0)
+					return NULL;
+				s = endp + 1;
+			} else {
+				if(estring_append(&e, s, 1) < 0)
+					return NULL;
+				s++;
+			}
+		} else {
+			if(estring_append(&e, s, 1) < 0)
+				return NULL;
+			s++;
+		}
+	}
+	if(estring_append(&e, s, strlen(s)) < 0)
+		return NULL;
+	return e.s;
+}
+
+char *eval(struct tupfile *tf, const char *string, int expand_nodes)
 {
 	const char *s;
 	const char *var;
@@ -4076,10 +4252,17 @@ char *eval(struct tupfile *tf, const char *string, int allow_nodes)
 					}
 				} else if(rparen-var == 14 &&
 					  strncmp(var, "TUP_VARIANTDIR", 14) == 0) {
-					if(get_relative_dir(NULL, &e, tf->srctent->tnode.tupid, tf->curtent->tnode.tupid) < 0) {
-						fprintf(tf->f, "tup internal error: Unable to find relative directory from ID %lli -> %lli\n", tf->srctent->tnode.tupid, tf->curtent->tnode.tupid);
+					char value[32];
+					snprintf(value, 31, "%%%llit", tf->curtent->tnode.tupid);
+					value[31] = 0;
+					if(estring_append(&e, value, strlen(value)) < 0)
+						return NULL;
+				} else if(rparen-var == 21 &&
+					  strncmp(var, "TUP_VARIANT_OUTPUTDIR", 21) == 0) {
+					if(get_relative_dir(NULL, &e, tf->srctent->tnode.tupid, tf->tent->tnode.tupid) < 0) {
+						fprintf(tf->f, "tup internal error: Unable to find relative directory from ID %lli -> %lli\n", tf->srctent->tnode.tupid, tf->tent->tnode.tupid);
 						tup_db_print(tf->f, tf->srctent->tnode.tupid);
-						tup_db_print(tf->f, tf->curtent->tnode.tupid);
+						tup_db_print(tf->f, tf->tent->tnode.tupid);
 						return NULL;
 					}
 				} else if(rparen - var > 7 &&
@@ -4094,7 +4277,7 @@ char *eval(struct tupfile *tf, const char *string, int allow_nodes)
 					if(tent_tree_add_dup(&tf->input_root, tent) < 0)
 						return NULL;
 				} else {
-					if(vardb_copy(&tf->vdb, var, rparen-var, &e) < 0)
+					if(luadb_copy(var, rparen-var, &e) < 0)
 						return NULL;
 				}
 				s = rparen + 1;
@@ -4135,14 +4318,9 @@ char *eval(struct tupfile *tf, const char *string, int allow_nodes)
 					syntax_msg = "expected ending variable paren ')'";
 					goto syntax_error;
 				}
-				if(allow_nodes != ALLOW_NODES) {
-					syntax_msg = "&-variables not allowed here";
-					goto syntax_error;
-				}
 
 				var = s + 2;
-				if (nodedb_copy(&tf->node_db, var, rparen-var, &e,
-				                variant_tent_to_srctent(tf->curtent)->tnode.tupid) < 0)
+				if(vardb_copy(&tf->node_db, var, rparen-var, &e) < 0)
 					return NULL;
 				s = rparen + 1;
 			} else {
@@ -4159,7 +4337,13 @@ char *eval(struct tupfile *tf, const char *string, int allow_nodes)
 	if(estring_append(&e, s, strlen(s)) < 0)
 		return NULL;
 
-	return e.s;
+
+	char *rc = e.s;
+	if(expand_nodes != KEEP_NODES) {
+		rc = expand_node_strings(tf, e.s, expand_nodes);
+		free(e.s);
+	}
+	return rc;
 
 syntax_error:
 	fprintf(tf->f, "Syntax error: %s\n", syntax_msg);

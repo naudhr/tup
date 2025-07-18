@@ -1,7 +1,7 @@
 #! /bin/sh -e
 # tup - A file-based build system
 #
-# Copyright (C) 2015-2021  Mike Shal <marfey@gmail.com>
+# Copyright (C) 2015-2024  Mike Shal <marfey@gmail.com>
 #
 # This program is free software; you can redistribute it and/or modify
 # it under the terms of the GNU General Public License version 2 as
@@ -25,7 +25,6 @@ cat > Tupfile << HERE
 HERE
 echo "int main(void) {return 0;}" > foo.c
 echo "int spacetest;" > space\ bar.c
-tup touch *.c
 update
 
 sym_check prog.exe spacetest

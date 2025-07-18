@@ -1,7 +1,7 @@
 #! /bin/sh -e
 # tup - A file-based build system
 #
-# Copyright (C) 2008-2021  Mike Shal <marfey@gmail.com>
+# Copyright (C) 2008-2024  Mike Shal <marfey@gmail.com>
 #
 # This program is free software; you can redistribute it and/or modify
 # it under the terms of the GNU General Public License version 2 as
@@ -23,7 +23,7 @@ cat > Tupfile << HERE
 : *.o fs/built-in.o |> gcc %f -o %o |> prog.exe
 HERE
 
-tmkdir fs
+mkdir fs
 cat > fs/Tupfile << HERE
 : foreach *.c |> gcc -c %f -o %o |> %B.o
 : *.o |> ld -r %f -o built-in.o |> built-in.o
@@ -33,7 +33,6 @@ echo "int main(void) {return 0;}" > main.c
 echo "void ext3fs(void) {}" > fs/ext3.c
 echo "void ext4fs(void) {}" > fs/ext4.c
 
-tup touch Tupfile main.c fs/ext3.c fs/ext4.c fs/Tupfile
 update
 
 sym_check prog.exe main ext3fs ext4fs

@@ -1,7 +1,7 @@
 #! /bin/sh -e
 # tup - A file-based build system
 #
-# Copyright (C) 2009-2021  Mike Shal <marfey@gmail.com>
+# Copyright (C) 2009-2024  Mike Shal <marfey@gmail.com>
 #
 # This program is free software; you can redistribute it and/or modify
 # it under the terms of the GNU General Public License version 2 as
@@ -22,13 +22,13 @@
 check_no_windows shell
 
 # First make a ghost
-tmkdir src
+mkdir src
 cat > src/Tupfile << HERE
 : |> if [ -f ../ghost ]; then echo yes; else echo no; fi |>
 HERE
 update
 
-tmkdir foo
+mkdir foo
 cat > foo/Tupfile << HERE
 : ../ghost/*.c |> echo %f |>
 HERE

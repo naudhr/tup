@@ -1,7 +1,7 @@
 #! /bin/sh -e
 # tup - A file-based build system
 #
-# Copyright (C) 2010-2021  Mike Shal <marfey@gmail.com>
+# Copyright (C) 2010-2024  Mike Shal <marfey@gmail.com>
 #
 # This program is free software; you can redistribute it and/or modify
 # it under the terms of the GNU General Public License version 2 as
@@ -28,7 +28,7 @@ inputs = '*.c'
 inputs += '*.S'
 tup.foreach_rule(inputs, 'gcc -c %f \$(CFLAGS_%e) -o %o', '%B.o')
 HERE
-tup touch foo.c bar.S
+touch foo.c bar.S
 parse
 
 tup_object_exist . 'gcc -c foo.c -Dcfile -o foo.o'

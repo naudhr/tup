@@ -2,7 +2,7 @@
  *
  * tup - A file-based build system
  *
- * Copyright (C) 2012-2021  Mike Shal <marfey@gmail.com>
+ * Copyright (C) 2012-2024  Mike Shal <marfey@gmail.com>
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 as
@@ -38,6 +38,7 @@
 #include <string.h>
 #include <dirent.h>
 #include <errno.h>
+#include <libgen.h>
 #include <sys/types.h>
 #include <sys/resource.h>
 
@@ -729,6 +730,27 @@ static int mknod_internal(const char *path, mode_t mode, int flags, int close_fd
 	if(context_check() < 0)
 		return -EPERM;
 
+	/* t5119 - Make sure we could write to the actual underlying directory,
+	 * since that can affect program behavior. For example, inkscape uses
+	 * fontconfig, which tries to write .uuid files in /usr/. If we report
+	 * that the write succeeds, we'll have issues with unspecified outputs.
+	 */
+	char *dir;
+	char *dirtmp = strdup(path);
+	if(!dirtmp) {
+		return -ENOMEM;
+	}
+	dir = dirname(dirtmp);
+
+	/* Use tup_fs_access in case it's a directory we mkdir'd during program
+	 * execution.
+	 */
+	rc = tup_fs_access(dir, W_OK);
+	free(dirtmp);
+	if(rc < 0) {
+		return -errno;
+	}
+
 	/* On Linux this could just be 'mknod(path, mode, rdev)' but this
 	   is more portable */
 	if (S_ISREG(mode)) {
@@ -850,6 +872,18 @@ static int tup_fs_unlink(const char *path)
 			return 0;
 		}
 		put_finfo(finfo);
+	}
+	if(strstr(path, ".fuse_hidden") != NULL) {
+		/* Similar to the rename check for .fuse_hidden, this shows up
+		 * in Arch sometimes.
+		 */
+		const char *peeled = peel(path);
+		int res;
+
+		res = unlink(peeled);
+		if(res < 0)
+			return -errno;
+		return 0;
 	}
 	fprintf(stderr, "tup error: Unable to unlink files not created during this job: %s\n", peel(path));
 	return -EPERM;
@@ -976,16 +1010,29 @@ static int tup_fs_rename(const char *from, const char *to)
 			return -ENOENT;
 		}
 
-		free(map->realname);
-		map->realname = strdup(peelto);
-		if(!map->realname) {
-			perror("strdup");
+		if(strstr(peelto, ".fuse_hidden") != NULL) {
+			/* If we're renaming to a .fuse_hidden file, treat it
+			 * as if the source was unlinked. This happens
+			 * sometimes in an Arch VM where a deleted file shows
+			 * up in FUSE as a rename to a .fuse_hidden file,
+			 * especially in t4017 for some reason.
+			 */
+			unlinkat(tup_top_fd(), map->tmpname, 0);
+			del_map(&finfo->mapping_list, map);
 			put_finfo(finfo);
-			return -ENOMEM;
-		}
+			tup_fuse_handle_file(from, NULL, ACCESS_UNLINK);
+		} else {
+			free(map->realname);
+			map->realname = strdup(peelto);
+			if(!map->realname) {
+				perror("strdup");
+				put_finfo(finfo);
+				return -ENOMEM;
+			}
 
-		handle_rename(peelfrom, peelto, finfo);
-		put_finfo(finfo);
+			handle_rename(peelfrom, peelto, finfo);
+			put_finfo(finfo);
+		}
 	}
 
 	return 0;
@@ -1088,7 +1135,7 @@ static int tup_fs_truncate(const char *path, off_t size)
 	struct mapping *map;
 	struct file_info *finfo;
 	const char *peeled;
-	int match = 0;
+	struct tup_entry *match = NULL;
 
 #ifdef FUSE3
 	(void) fi;
@@ -1143,7 +1190,7 @@ static int tup_fs_utimens(const char *path, const struct timespec ts[2])
 	const char *peeled;
 	struct mapping *map;
 	struct file_info *finfo;
-	int match = 0;
+	struct tup_entry *match = NULL;
 
 #ifdef FUSE3
 	(void) fi;
@@ -1195,7 +1242,7 @@ static int tup_fs_create(const char *path, mode_t mode, struct fuse_file_info *f
 	struct file_info *finfo;
 	rc = mknod_internal(path, mode, fi->flags, 0);
 	if(rc < 0)
-		return -errno;
+		return rc;
 	finfo = get_finfo(path);
 	if(finfo) {
 		if(finfo->open_count >= max_open_files) {
@@ -1236,7 +1283,7 @@ static int tup_fs_open(const char *path, struct fuse_file_info *fi)
 			openfile = map->tmpname;
 		} else {
 #ifdef FUSE3
-			int match = 0;
+			struct tup_entry *match = NULL;
 			if(exclusion_match(stderr, &finfo->exclusion_root, path, &match) < 0) {
 				put_finfo(finfo);
 				return -ENOSYS;

@@ -1,7 +1,7 @@
 #! /bin/sh -e
 # tup - A file-based build system
 #
-# Copyright (C) 2013-2021  Mike Shal <marfey@gmail.com>
+# Copyright (C) 2013-2024  Mike Shal <marfey@gmail.com>
 #
 # This program is free software; you can redistribute it and/or modify
 # it under the terms of the GNU General Public License version 2 as
@@ -45,7 +45,6 @@ cat > Tupfile << HERE
 : gen.exe |> ./gen.exe |> out.cpp <more>
 #: <more> |> gcc -c out.cpp -o out.o |> out.o <generated>
 HERE
-tup touch Tupfile
 update
 
 cat > Tupfile << HERE
@@ -53,7 +52,6 @@ cat > Tupfile << HERE
 : gen.exe |> ./gen.exe |> out.cpp <more>
 : <more> |> gcc -c out.cpp -o out.o |> out.o <generated>
 HERE
-tup touch Tupfile
 parse_fail_msg "tup error.*Circular dependency found among the following groups:"
 
 eotup

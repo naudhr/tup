@@ -3,7 +3,7 @@
  * tup - A file-based build system
  *
  * Copyright (C) 2010  James McKaskill
- * Copyright (C) 2010-2021  Mike Shal <marfey@gmail.com>
+ * Copyright (C) 2010-2024  Mike Shal <marfey@gmail.com>
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 as
@@ -438,6 +438,33 @@ static char s_depfilename[PATH_MAX];
 static char s_vardict_file[PATH_MAX];
 static HANDLE deph = INVALID_HANDLE_VALUE;
 
+static int ignore_exe(const char *exec)
+{
+	if(!exec)
+		return 1;
+	/* Ignore tup32detect.exe, since that's our own process.
+	 * Ignore mspdbsrv.exe, since it continues to run in the background.
+	 */
+	if(strcasestr(exec, "tup32detect.exe") != NULL ||
+	   strcasestr(exec, "mspdbsrv.exe") != NULL ||
+	   strcasestr(exec, "vctip.exe") != NULL) {
+		return 1;
+	}
+	return 0;
+}
+
+static int ignore_wexe(LPCWSTR exec)
+{
+	if(!exec)
+		return 1;
+	if(wcscasestr(exec, L"tup32detect.exe") != NULL ||
+	   wcscasestr(exec, L"mspdbsrv.exe") != NULL ||
+	   wcscasestr(exec, L"vctip.exe") != NULL) {
+		return 1;
+	   }
+	return 0;
+}
+
 static int writef(const char *data, unsigned int len)
 {
 	int rc = 0;
@@ -608,9 +635,9 @@ ULONG_PTR AttributeList)
 		if (exec == NULL) return rc;
 
 		exec++;
-		if (strncasecmp(exec, "tup32detect.exe", 15) == 0 ||
-			strncasecmp(exec, "mspdbsrv.exe", 12) == 0)
+		if(ignore_exe(exec)) {
 			return rc;
+		}
 
                 DEBUG_HOOK("NtCreateUser: %s\n", buffer);
 
@@ -1211,9 +1238,7 @@ BOOL WINAPI CreateProcessA_hook(
 		return 0;
 	}
 
-	/* Ignore mspdbsrv.exe, since it continues to run in the background */
-	if(!lpApplicationName || strcasestr(lpApplicationName, "mspdbsrv.exe") == NULL
-	   || strcasestr(lpApplicationName, "tup32detect.exe") == NULL) {
+	if(!ignore_exe(lpApplicationName)) {
 		tup_inject_dll(lpProcessInformation, s_depfilename, s_vardict_file);
 	}
 
@@ -1257,9 +1282,7 @@ BOOL WINAPI CreateProcessW_hook(
 		return 0;
 	}
 
-	/* Ignore mspdbsrv.exe, since it continues to run in the background */
-	if(!lpApplicationName || wcscasestr(lpApplicationName, L"mspdbsrv.exe") == NULL
-	   || wcscasestr(lpApplicationName, L"tup32detect.exe") == NULL) {
+	if(ignore_wexe(lpApplicationName)) {
 		tup_inject_dll(lpProcessInformation, s_depfilename, s_vardict_file);
 	}
 
@@ -1304,9 +1327,7 @@ BOOL WINAPI CreateProcessAsUserA_hook(
 		return 0;
 	}
 
-	/* Ignore mspdbsrv.exe, since it continues to run in the background */
-	if(!lpApplicationName || strcasestr(lpApplicationName, "mspdbsrv.exe") == NULL
-	   || strcasestr(lpApplicationName, "tup32detect.exe") == NULL) {
+	if(!ignore_exe(lpApplicationName)) {
 		tup_inject_dll(lpProcessInformation, s_depfilename, s_vardict_file);
 	}
 
@@ -1351,9 +1372,7 @@ BOOL WINAPI CreateProcessAsUserW_hook(
 		return 0;
 	}
 
-	/* Ignore mspdbsrv.exe, since it continues to run in the background */
-	if(!lpApplicationName || wcscasestr(lpApplicationName, L"mspdbsrv.exe") == NULL
-	   || wcscasestr(lpApplicationName, L"tup32detect.exe") == NULL) {
+	if(!ignore_wexe(lpApplicationName)) {
 		tup_inject_dll(lpProcessInformation, s_depfilename, s_vardict_file);
 	}
 
@@ -1398,9 +1417,7 @@ BOOL WINAPI CreateProcessWithLogonW_hook(
 		return 0;
 	}
 
-	/* Ignore mspdbsrv.exe, since it continues to run in the background */
-	if(!lpApplicationName || wcscasestr(lpApplicationName, L"mspdbsrv.exe") == NULL
-	   || wcscasestr(lpApplicationName, L"tup32detect.exe") == NULL) {
+	if(!ignore_wexe(lpApplicationName)) {
 		tup_inject_dll(lpProcessInformation, s_depfilename, s_vardict_file);
 	}
 
@@ -1441,9 +1458,7 @@ BOOL WINAPI CreateProcessWithTokenW_hook(
 		return 0;
 	}
 
-	/* Ignore mspdbsrv.exe, since it continues to run in the background */
-	if(!lpApplicationName || wcscasestr(lpApplicationName, L"mspdbsrv.exe") == NULL
-	   || wcscasestr(lpApplicationName, L"tup32detect.exe") == NULL) {
+	if(!ignore_wexe(lpApplicationName)) {
 		tup_inject_dll(lpProcessInformation, s_depfilename, s_vardict_file);
 	}
 
@@ -2285,9 +2300,6 @@ int tup_inject_dll(
 
 		process = lpProcessInformation->hProcess;
 
-		if (!WaitForInputIdle(process, INFINITE))
-			return -1;
-
 		remote_data = (char*) VirtualAllocEx(
 			process,
 			NULL,
@@ -2361,9 +2373,6 @@ int tup_inject_dll(
 			remote.vardict_file);
 
 		process = lpProcessInformation->hProcess;
-
-		if (!WaitForInputIdle(process, INFINITE))
-			return -1;
 
 		remote_data = (char*) VirtualAllocEx(
 			process,

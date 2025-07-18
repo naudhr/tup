@@ -2,7 +2,7 @@
  *
  * tup - A file-based build system
  *
- * Copyright (C) 2008-2021  Mike Shal <marfey@gmail.com>
+ * Copyright (C) 2008-2024  Mike Shal <marfey@gmail.com>
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 as
@@ -225,7 +225,7 @@ int create_graph(struct graph *g, enum TUP_NODE_TYPE count_flags)
 	root_entry.dt = 0;
 	root_entry.parent = NULL;
 	root_entry.type = TUP_NODE_ROOT;
-	root_entry.mtime = -1;
+	root_entry.mtime = INVALID_MTIME;
 	root_entry.name.len = strlen(root_name);
 	root_entry.name.s = root_name;
 	RB_INIT(&root_entry.entries);
@@ -304,10 +304,10 @@ static int make_edge(struct graph *g, struct node *n)
 			n->counted = 1;
 			g->num_nodes++;
 			if(g->total_mtime != -1) {
-				if(n->tent->mtime == -1)
+				if(n->tent->mtime.tv_sec == -1)
 					g->total_mtime = -1;
 				else
-					g->total_mtime += n->tent->mtime;
+					g->total_mtime += n->tent->mtime.tv_sec;
 			}
 		}
 		expand_node(g, n);
@@ -407,7 +407,7 @@ static struct node *find_or_create_node(struct graph *g, struct tup_entry *tent)
 }
 
 /* Callback for adding group dependencies to the regular update graph. This
- * just adds a link from <group1> -> <group2> so that if we 'tup upd
+ * just adds a link from <group1> -> <group2> so that if we 'tup
  * <group2>', we also build everything in group1. See t3088, t3089.
  */
 int build_graph_group_cb(void *arg, struct tup_entry *tent)
@@ -489,7 +489,7 @@ static int attach_transient_nodes(struct graph *g)
 			return -1;
 		LIST_FOREACH(e, &cmdnode->edges, list) {
 			g->cur = e->dest;
-			if(tup_db_select_node_by_link(attach_transient_cb, g, g->cur->tnode.tupid) < 0)
+			if(tup_db_select_node_by_sticky_link(attach_transient_cb, g, g->cur->tnode.tupid) < 0)
 				return -1;
 
 			/* We only need to keep the command if:
@@ -589,7 +589,12 @@ int build_graph(struct graph *g)
 	 */
 	free_tent_tree(&g->transient_root);
 
-	if(g->style != TUP_LINK_GROUP)
+	/* Don't add graph stickies for groups, or for the create graph
+	 * (count_flags == TUP_NODE_DIR). The latter is because we don't want
+	 * to populate tup_entry->stickies before potentially deleting nodes
+	 * (t6807).
+	 */
+	if(g->style != TUP_LINK_GROUP && g->count_flags != TUP_NODE_DIR)
 		if(add_graph_stickies(g) < 0)
 			return -1;
 
@@ -781,8 +786,8 @@ static int prune_node(struct graph *g, struct node *n, int *num_pruned, enum gra
 
 		g->num_nodes--;
 		if(g->total_mtime != -1) {
-			if(n->tent->mtime != -1)
-				g->total_mtime -= n->tent->mtime;
+			if(n->tent->mtime.tv_sec != -1)
+				g->total_mtime -= n->tent->mtime.tv_sec;
 		}
 		(*num_pruned)++;
 		if(verbose) {
@@ -1266,22 +1271,39 @@ static int combine_nodes(struct graph *g, enum TUP_NODE_TYPE type, tupid_t (*has
 		}
 	}
 
-	/* Then keep only the first node of each hash value */
+	/* Then keep only the first node (alphabetically) of each hash value */
 	RB_FOREACH_SAFE(tt, tupid_entries, &tmproot, tmp) {
 		struct tupid_tree *hashtt;
 		nd = container_of(tt, struct node_details, nodetnode);
 		n = nd->n;
 
+		tupid_tree_rm(&tmproot, &nd->nodetnode);
+
 		hashtt = tupid_tree_search(hash_root, nd->hashtnode.tupid);
 		if(hashtt == NULL) {
-			tupid_tree_rm(&tmproot, &nd->nodetnode);
 			tupid_tree_insert(hash_root, &nd->hashtnode);
 			tupid_tree_insert(node_root, &nd->nodetnode);
 		} else {
+			struct node_details *orig_nd;
 			struct node_details *count_nd;
+			struct node_details *child_nd;
 
-			count_nd = container_of(hashtt, struct node_details, hashtnode);
-			count_nd->count++;
+			orig_nd = container_of(hashtt, struct node_details, hashtnode);
+			if(strcmp(orig_nd->n->tent->name.s, nd->n->tent->name.s) < 0) {
+				count_nd = orig_nd;
+				child_nd = nd;
+			} else {
+				/* If the current node is first alphabetically,
+				 * remove the old one and replace it with us.
+				 */
+				count_nd = nd;
+				child_nd = orig_nd;
+				tupid_tree_rm(hash_root, &orig_nd->hashtnode);
+				tupid_tree_rm(node_root, &orig_nd->nodetnode);
+				tupid_tree_insert(hash_root, &nd->hashtnode);
+				tupid_tree_insert(node_root, &nd->nodetnode);
+			}
+			count_nd->count += child_nd->count;
 
 			if(n->tent->type == TUP_NODE_CMD) {
 				struct edge *e;
@@ -1290,22 +1312,21 @@ static int combine_nodes(struct graph *g, enum TUP_NODE_TYPE type, tupid_t (*has
 				 * command in the same hash bin so we
 				 * can count them properly.
 				 */
-				LIST_FOREACH(e, &n->edges, list) {
+				LIST_FOREACH(e, &child_nd->n->edges, list) {
 					if(!find_edge(&count_nd->n->edges, e->dest, e->style)) {
 						if(create_edge_sorted(count_nd->n, e->dest, e->style) < 0)
 							return -1;
 					}
 				}
-				LIST_FOREACH(e, &n->incoming, destlist) {
+				LIST_FOREACH(e, &child_nd->n->incoming, destlist) {
 					if(!find_incoming_edge(&count_nd->n->incoming, e->src, e->style)) {
 						if(create_edge_sorted(e->src, count_nd->n, e->style) < 0)
 							return -1;
 					}
 				}
 			}
-			tupid_tree_rm(&tmproot, &nd->nodetnode);
-			remove_node_internal(g, n);
-			free(nd);
+			remove_node_internal(g, child_nd->n);
+			free(child_nd);
 		}
 	}
 	return 0;

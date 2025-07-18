@@ -1,7 +1,7 @@
 #! /bin/sh -e
 # tup - A file-based build system
 #
-# Copyright (C) 2018-2021  Mike Shal <marfey@gmail.com>
+# Copyright (C) 2018-2024  Mike Shal <marfey@gmail.com>
 #
 # This program is free software; you can redistribute it and/or modify
 # it under the terms of the GNU General Public License version 2 as
@@ -38,13 +38,12 @@ cat > Tupfile << HERE
 HERE
 update_partial normal.txt
 
-tup touch Tupfile
+touch Tupfile
 update_partial gen/output.txt
 
 cat > Tupfile << HERE
 : |> touch %o |> normal.txt
 HERE
-tup touch Tupfile
 update
 
 eotup

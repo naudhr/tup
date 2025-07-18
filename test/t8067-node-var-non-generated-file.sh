@@ -1,7 +1,7 @@
 #! /bin/sh -e
 # tup - A file-based build system
 #
-# Copyright (C) 2012-2021  Mike Shal <marfey@gmail.com>
+# Copyright (C) 2012-2024  Mike Shal <marfey@gmail.com>
 #
 # This program is free software; you can redistribute it and/or modify
 # it under the terms of the GNU General Public License version 2 as
@@ -21,14 +21,14 @@
 
 . ./tup.sh
 
-tmkdir build
+mkdir build
 
 cat > Tupfile << HERE
 &lib = myLib.a
 : &(lib) |> cp %f %o |> %b.copy
 HERE
 
-tup touch Tupfile build/tup.config myLib.a
+touch build/tup.config myLib.a
 update
 
 tup_dep_exist . myLib.a build 'cp myLib.a build/myLib.a.copy'

@@ -1,7 +1,7 @@
 #! /bin/sh -e
 # tup - A file-based build system
 #
-# Copyright (C) 2012-2021  Mike Shal <marfey@gmail.com>
+# Copyright (C) 2012-2024  Mike Shal <marfey@gmail.com>
 #
 # This program is free software; you can redistribute it and/or modify
 # it under the terms of the GNU General Public License version 2 as
@@ -19,20 +19,20 @@
 # Try a variant with a ghost in the variant dir.
 . ./tup.sh
 
-tmkdir build
-tmkdir sub
+mkdir build
+mkdir sub
 
 cat > Tupfile << HERE
 : sub/input.h |> cp %f %o |> output.h
 HERE
 echo "CONFIG_FOO=y" > build/tup.config
-tup touch build/tup.config Tupfile sub/input.h
+touch sub/input.h
 
 update
 check_exist build/output.h
 
 # Make sure we can still parse now that input.h is a ghost in build/sub/
-tup touch Tupfile
+touch Tupfile
 update
 
 eotup

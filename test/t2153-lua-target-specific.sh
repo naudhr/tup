@@ -1,7 +1,7 @@
 #! /bin/sh -e
 # tup - A file-based build system
 #
-# Copyright (C) 2013-2021  Mike Shal <marfey@gmail.com>
+# Copyright (C) 2013-2024  Mike Shal <marfey@gmail.com>
 #
 # This program is free software; you can redistribute it and/or modify
 # it under the terms of the GNU General Public License version 2 as
@@ -27,7 +27,7 @@ flags_foo += '-y'
 tup.foreach_rule(pages, 'echo %f \$(flags) \$(flags_%B)')
 HERE
 
-tup touch Tupfile.lua foo.html bar.html
+touch foo.html bar.html
 parse
 
 tup_object_exist . 'echo foo.html -x -y'

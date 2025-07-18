@@ -1,7 +1,7 @@
 #! /bin/sh -e
 # tup - A file-based build system
 #
-# Copyright (C) 2009-2021  Mike Shal <marfey@gmail.com>
+# Copyright (C) 2009-2024  Mike Shal <marfey@gmail.com>
 #
 # This program is free software; you can redistribute it and/or modify
 # it under the terms of the GNU General Public License version 2 as
@@ -24,18 +24,17 @@
 . ./tup.sh
 check_no_windows symlink
 
-tmkdir arch-x86
+mkdir arch-x86
 cat > Tupfile << HERE
 : |> ln -s arch-x86 %o |> arch
 HERE
-tup touch Tupfile arch-x86/foo.c
+touch arch-x86/foo.c
 update
 
 cat > Tupfile << HERE
 : |> ln -s arch-x86 %o |> arch
 : arch/*.c |> gcc -c %f -o %o |> %B.o
 HERE
-tup touch Tupfile
 parse_fail_msg "Unable to read from generated file.*arch"
 
 eotup

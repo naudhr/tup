@@ -2,7 +2,7 @@
  *
  * tup - A file-based build system
  *
- * Copyright (C) 2018-2021  Mike Shal <marfey@gmail.com>
+ * Copyright (C) 2018-2024  Mike Shal <marfey@gmail.com>
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 as
@@ -26,12 +26,16 @@ int is_ccache_path(const char *path)
 	/* ccache paths */
 	if(strstr(path, "/.ccache") != NULL)
 		return 1;
+	if(strstr(path, "/.cache/ccache") != NULL)
+		return 1;
+	if(strstr(path, "/ccache-tmp/") != NULL)
+		return 1;
 #ifdef _WIN32
 	if(strstr(path, "\\.ccache") != NULL)
 		return 1;
 #endif
 
-	/* icecream file lcok. This file gets created if icecream falls back
+	/* icecream file lock. This file gets created if icecream falls back
 	 * to local compilation mode.
 	 */
 	if(strncmp(path, "/tmp/.icecream-", 15) == 0)

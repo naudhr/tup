@@ -1,7 +1,7 @@
 #! /bin/sh -e
 # tup - A file-based build system
 #
-# Copyright (C) 2012-2021  Mike Shal <marfey@gmail.com>
+# Copyright (C) 2012-2024  Mike Shal <marfey@gmail.com>
 #
 # This program is free software; you can redistribute it and/or modify
 # it under the terms of the GNU General Public License version 2 as
@@ -19,8 +19,8 @@
 # Make sure we can go from an in-tree build to a variant.
 . ./tup.sh
 
-tmkdir build
-tmkdir sub
+mkdir build
+mkdir sub
 
 cat > Tupfile << HERE
 .gitignore
@@ -32,20 +32,20 @@ cat > sub/Tupfile << HERE
 : foreach bar.c |> gcc -c %f -o %o |> %B.o
 HERE
 echo "int main(void) {return 0;}" > foo.c
-tup touch Tupfile foo.c sub/bar.c
+touch sub/bar.c
 update
 
 check_not_exist build/foo.o build/sub/bar.o build/prog.exe
 check_exist foo.o sub/bar.o prog.exe
 
-tup touch build/tup.config
+touch build/tup.config
 update
 
 check_exist build/foo.o build/sub/bar.o build/prog.exe
 check_not_exist foo.o sub/bar.o prog.exe
 
 # Make sure we can still update the variant
-tup touch sub/Tupfile
+touch sub/Tupfile
 update
 
 eotup

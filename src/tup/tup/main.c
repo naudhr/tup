@@ -2,7 +2,7 @@
  *
  * tup - A file-based build system
  *
- * Copyright (C) 2008-2021  Mike Shal <marfey@gmail.com>
+ * Copyright (C) 2008-2024  Mike Shal <marfey@gmail.com>
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 as
@@ -29,6 +29,7 @@
 #include <sys/stat.h>
 #include <fcntl.h>
 #include <errno.h>
+#include "tup/colors.h"
 #include "tup/config.h"
 #include "tup/lock.h"
 #include "tup/monitor.h"
@@ -50,13 +51,39 @@
 #include "tup/vardb.h"
 #include "tup/variant.h"
 #include "tup/container.h"
+#include "tup/array_size.h"
+#include "tup/luaparser.h"
 
+static struct help {
+	const char *command;
+	const char *altcommand;
+	const char *args;
+	const char *desc;
+} helpers[] = {
+	{"init", NULL, "[directory]", "Creates a '.tup' directory in the specified directory and initializes the tup database. If a directory name is unspecified, it defaults to creating '.tup' in the current directory. This defines the top of your project, as viewed by tup."},
+	{"upd", NULL, "[<output_1> ... <output_n>]", "Legacy secondary command. Calling 'tup upd' is equivalent to simply calling 'tup'."},
+	{"refactor", "ref", "", "The refactor command can be used to help refactor Tupfiles. This will cause tup to run through the parsing phase, but not execute any commands. If any Tupfiles that are parsed result in changes to the database, these are reported as errors."},
+	{"monitor", NULL, "", "*LINUX ONLY* Starts the inotify-based file monitor. The monitor must scan the filesystem once and initialize watches on each directory. Then when you make changes to the files, the monitor will see them and write them directly into the database. With the monitor running, 'tup' does not need to do the initial scan, and can start constructing the build graph immediately."},
+	{"stop", NULL, "", "Kills the monitor if it is running."},
+	{"variant", NULL, "foo.config [bar.config] [...]", "For each argument, this command creates a variant directory with tup.config symlinked (Windows: copied) to the specified config file."},
+	{"dbconfig", NULL, "", "Displays the current tup database configuration. These are internal values used by tup."},
+	{"options", NULL, "", "Displays all of the current tup options, as well as where they originated."},
+	{"graph", NULL, "[--dirs] [--ghosts] [--env] [--combine] [--stickies] [<output_1> ... <output_n>]", "Prints out a graphviz .dot format graph of the tup database to stdout. By default it only displays the parts of the graph that have changes. If you provide additional arguments, they are assumed to be files that you want to graph."},
+	{"todo", NULL, "[<output_1> ... <output_n>]", "Prints out the next steps in the tup process that will execute when updating the given outputs. If no outputs are specified then it prints the steps needed to update the whole project."},
+	{"generate", NULL, "[--config config-file] script.sh (or script.bat on Windows)", "The generate command will parse all Tupfiles and create a shell script that can build the program without running in a tup environment. The expected usage is in continuous integration environments that aren't compatible with tup's dependency checking (eg: if FUSE is not supported). On Windows, if the script filename has a \".bat\" extension, then the output will be a batch script instead of a shell script."},
+	{"varsed", NULL, "", "The varsed command is used as a subprogram in a Tupfile; you would not run it manually at the command-line. It is used to read one file, and replace any variable references and write the output to a second file. Variable references are of the form @VARIABLE@, and are replaced with the corresponding value of the @-variable."},
+	{"scan", NULL, "", "You shouldn't ever need to run this, unless you want to make the database reflect the filesystem before running 'tup graph'. Scan is called automatically by 'upd' if the monitor isn't running."},
+};
+
+static void print_help(struct help *h, const char *argv0);
 static int entry(int argc, char **argv);
 static int type(int argc, char **argv);
 static int tupid(int argc, char **argv);
 static int inputs(int argc, char **argv);
 static int graph_cb(void *arg, struct tup_entry *tent);
 static int graph(int argc, char **argv);
+static int compiledb(int argc, char **argv);
+static int commandline(int argc, char **argv);
 /* Testing commands */
 static int mlink(int argc, char **argv);
 static int variant(int argc, char **argv);
@@ -64,7 +91,6 @@ static int node_exists(int argc, char **argv);
 static int link_exists(const char *cmd, int argc, char **argv);
 static int touch(int argc, char **argv);
 static int node(int argc, char **argv);
-static int rm(int argc, char **argv);
 static int varshow(int argc, char **argv);
 static int dbconfig(int argc, char **argv);
 static int options(int argc, char **argv);
@@ -83,7 +109,9 @@ int main(int argc, char **argv)
 	int cmd_arg = 0;
 	const char *cmd = NULL;
 	int clear_autoupdate = 0;
+	int show_help = 0;
 	int orig_argc;
+	char *tupexe = argv[0];
 	char **orig_argv;
 
 	/* Skip 'tup' executable argument */
@@ -100,7 +128,32 @@ int main(int argc, char **argv)
 			tup_db_enable_sql_debug();
 		} else if(strcmp(argv[x], "--debug-fuse") == 0) {
 			server_enable_debug();
+		} else if(strcmp(argv[x], "-h") == 0 ||
+			  strcmp(argv[x], "--help") == 0) {
+			show_help = 1;
 		}
+	}
+
+	if(show_help) {
+		if(!cmd) {
+			fprintf(stderr, "%s [--debug-sql] [--debug-fuse] [SECONDARY_COMMAND] [ARGS]\n\n", tupexe);
+			fprintf(stderr, "tup [<output_1> ... <output_n>]\n");
+			fprintf(stderr, "\nUpdates the set of outputs based on the dependency graph and the current state of the filesystem. If no outputs are specified then the whole project is updated.\n");
+			fprintf(stderr, "\nSECONDARY COMMANDS\n\n");
+			for(x=0; x<ARRAY_SIZE(helpers); x++) {
+				fprintf(stderr, "%s %s\n", tupexe, helpers[x].command);
+			}
+		} else {
+			for(x=0; x<ARRAY_SIZE(helpers); x++) {
+				if(strcmp(cmd, helpers[x].command) == 0 ||
+				   (helpers[x].altcommand && strcmp(cmd, helpers[x].altcommand) == 0)) {
+					print_help(&helpers[x], tupexe);
+					return 0;
+				}
+			}
+			fprintf(stderr, "tup: No help found for secondary command: %s\n", cmd);
+		}
+		return 0;
 	}
 
 	if(NULL == cmd) {
@@ -207,6 +260,10 @@ int main(int argc, char **argv)
 		rc = inputs(argc, argv);
 	} else if(strcmp(cmd, "graph") == 0) {
 		rc = graph(argc, argv);
+	} else if(strcmp(cmd, "compiledb") == 0) {
+		rc = compiledb(argc, argv);
+	} else if(strcmp(cmd, "commandline") == 0) {
+		rc = commandline(argc, argv);
 	} else if(strcmp(cmd, "scan") == 0) {
 		int pid;
 		if(monitor_get_pid(0, &pid) < 0)
@@ -256,8 +313,6 @@ int main(int argc, char **argv)
 		rc = touch(argc, argv);
 	} else if(strcmp(cmd, "node") == 0) {
 		rc = node(argc, argv);
-	} else if(strcmp(cmd, "rm") == 0) {
-		rc = rm(argc, argv);
 	} else if(strcmp(cmd, "varshow") == 0) {
 		rc = varshow(argc, argv);
 	} else if(strcmp(cmd, "dbconfig") == 0) {
@@ -298,6 +353,15 @@ int main(int argc, char **argv)
 	if(rc < 0)
 		return 1;
 	return rc;
+}
+
+static void print_help(struct help *h, const char *tupexe)
+{
+	fprintf(stderr, "%s %s %s\n", tupexe, h->command, h->args);
+	if(h->altcommand) {
+		fprintf(stderr, "%s %s %s\n", tupexe, h->altcommand, h->args);
+	}
+	fprintf(stderr, "\n%s\n", h->desc);
 }
 
 static int entry(int argc, char **argv)
@@ -579,6 +643,66 @@ static int graph(int argc, char **argv)
 	return 0;
 }
 
+static int compiledb(int argc, char **argv)
+{
+	int rc;
+	struct variant *variant;
+	rc = updater(argc, argv, 2);
+	if(rc < 0)
+		return -1;
+
+	LIST_FOREACH(variant, get_variant_list(), list) {
+		if(variant->enabled) {
+			int fd;
+			int dfd;
+
+			dfd = tup_entry_open(variant->tent->parent);
+			fd = openat(dfd, "compile_commands.json", O_CREAT | O_WRONLY | O_TRUNC, 0666);
+			if(fd < 0) {
+				perror("compile_commands.json");
+				fprintf(stderr, "tup error: Unable to create compile_commands.json at the top of the tup hierarchy.\n");
+				return -1;
+			}
+			FILE *f = fdopen(fd, "w");
+			if(tup_db_create_compile_db(f, variant) < 0)
+				return -1;
+			fclose(f);
+			close(dfd);
+		}
+	}
+	return 0;
+}
+
+static int commandline(int argc, char **argv)
+{
+	struct tup_entry *tent;
+	int x;
+
+	color_disable();
+	if(tup_db_begin() < 0)
+		return -1;
+	if(variant_load() < 0)
+		return -1;
+	printf("[\n");
+	for(x=0; x<argc; x++) {
+		if(gimme_tent(argv[x], &tent) < 0) {
+			fprintf(stderr, "No tent :(\n");
+			return -1;
+		}
+		if(tent) {
+			if(tup_db_print_commandline(tent) < 0)
+				return -1;
+		} else {
+			fprintf(stderr, "tup error: entry not found for '%s'\n", argv[x]);
+			return -1;
+		}
+	}
+	printf("\n]\n");
+	if(tup_db_commit() < 0)
+		return -1;
+	return 0;
+}
+
 static int mlink(int argc, char **argv)
 {
 	/* This only works for files in the top-level directory. It's only
@@ -723,11 +847,23 @@ static int create_variant(const char *config_path)
 		fprintf(stderr, "tup error: linkdest is too small to fit the tup.config symlink destination.\n");
 		return -1;
 	}
+#ifdef _WIN32
+	char srcpath[PATH_MAX];
+	if(snprintf(srcpath, sizeof(srcpath), "%s/%s", get_sub_dir(), config_path) >= (signed)sizeof(srcpath)) {
+		fprintf(stderr, "tup error: srcpath is too small to fit the tup.config source path.\n");
+		return -1;
+	}
+	if(CopyFileA(srcpath, linkdest, TRUE) == 0) {
+		fprintf(stderr, "tup error: Unable to copy the config file %s to destination: %s\n", srcpath, linkdest);
+		return -1;
+	}
+#else
 	if(symlink(linkpath, linkdest) < 0) {
 		perror(linkdest);
 		fprintf(stderr, "tup error: Unable to create tup.config symlink for config file: %s\n", config_path);
 		return -1;
 	}
+#endif
 	printf("tup: Added variant '%s' using config file '%s'\n", dirname, config_path);
 	return 0;
 }
@@ -928,48 +1064,18 @@ static int node(int argc, char **argv)
 	for(x=0; x<argc; x++) {
 		tupid_t dt;
 		struct path_element *pel = NULL;
+		struct timespec mtime = {-1, 0};
 
 		dt = find_dir_tupid_dt(sub_dir_dt, argv[x], &pel, 0, 0);
 		if(dt <= 0) {
 			fprintf(stderr, "Unable to find dir '%s' relative to %lli\n", argv[x], sub_dir_dt);
 			return -1;
 		}
-		if(create_name_file(dt, pel->path, -1, NULL) < 0) {
+		if(create_name_file(dt, pel->path, mtime, NULL) < 0) {
 			fprintf(stderr, "Unable to create node for '%s' in dir %lli\n", pel->path, dt);
 			return -1;
 		}
 		free_pel(pel);
-	}
-	if(tup_db_commit() < 0)
-		return -1;
-	return 0;
-}
-
-static int rm(int argc, char **argv)
-{
-	int x;
-	tupid_t sub_dir_dt;
-
-	if(tup_db_begin() < 0)
-		return -1;
-	sub_dir_dt = get_sub_dir_dt();
-	if(sub_dir_dt < 0)
-		return -1;
-
-	for(x=0; x<argc; x++) {
-		struct path_element *pel = NULL;
-		tupid_t dt;
-
-		dt = find_dir_tupid_dt(sub_dir_dt, argv[x], &pel, 0, 0);
-		if(dt < 0) {
-			fprintf(stderr, "Unable to find dir '%s' relative to %lli\n", argv[x], sub_dir_dt);
-			return -1;
-		}
-		if(pel) {
-			if(tup_file_del(dt, pel->path, pel->len, NULL) < 0)
-				return -1;
-			free_pel(pel);
-		}
 	}
 	if(tup_db_commit() < 0)
 		return -1;
@@ -1048,14 +1154,9 @@ static int varshow(int argc, char **argv)
 
 static int dbconfig(int argc, char **argv)
 {
-	if(argv) {}
-	if(argc == 1) {
-		if(tup_db_show_config() < 0)
-			return -1;
-	} else {
-		fprintf(stderr, "tup error: 'dbconfig' doesn't take arguments.\n");
+	if(argv || argc) {/* unused */}
+	if(tup_db_show_config() < 0)
 		return -1;
-	}
 	return 0;
 }
 
@@ -1071,7 +1172,7 @@ static int fake_mtime(int argc, char **argv)
 {
 	struct tup_entry *tent;
 	struct tup_entry *dtent;
-	time_t mtime;
+	struct timespec mtime;
 	tupid_t dt;
 	tupid_t sub_dir_dt;
 	struct path_element *pel = NULL;
@@ -1098,7 +1199,7 @@ static int fake_mtime(int argc, char **argv)
 		fprintf(stderr, "Unable to find node '%.*s' in dir %lli\n", pel->len, pel->path, dt);
 		return -1;
 	}
-	mtime = strtol(argv[1], NULL, 0);
+	mtime.tv_sec = strtol(argv[1], NULL, 0);
 	if(tup_db_set_mtime(tent, mtime) < 0)
 		return -1;
 	free_pel(pel);

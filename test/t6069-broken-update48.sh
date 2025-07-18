@@ -1,7 +1,7 @@
 #! /bin/sh -e
 # tup - A file-based build system
 #
-# Copyright (C) 2013-2021  Mike Shal <marfey@gmail.com>
+# Copyright (C) 2013-2024  Mike Shal <marfey@gmail.com>
 #
 # This program is free software; you can redistribute it and/or modify
 # it under the terms of the GNU General Public License version 2 as
@@ -44,14 +44,12 @@ cat > Tupfile << HERE
 : gen.c | <generated> |> gcc %f -o %o |> gen.exe
 : gen.exe |> ./gen.exe |> out.cpp <generated>
 HERE
-tup touch Tupfile
 update_fail_msg 'both reads from and writes to this group.*generated'
 
 cat > Tupfile << HERE
 : gen.c | <generated> |> gcc %f -o %o |> gen.exe
 : gen.exe |> ./gen.exe |> out.cpp
 HERE
-tup touch Tupfile
 update
 
 eotup

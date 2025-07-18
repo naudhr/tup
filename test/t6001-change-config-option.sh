@@ -1,7 +1,7 @@
 #! /bin/sh -e
 # tup - A file-based build system
 #
-# Copyright (C) 2008-2021  Mike Shal <marfey@gmail.com>
+# Copyright (C) 2008-2024  Mike Shal <marfey@gmail.com>
 #
 # This program is free software; you can redistribute it and/or modify
 # it under the terms of the GNU General Public License version 2 as
@@ -31,7 +31,6 @@ HERE
 
 echo "int main(void) {} void bar(void) {}" > bar.c
 echo "void foo(void) {}" > foo.c
-tup touch foo.c bar.c Tupfile
 update
 sym_check foo.o foo
 sym_check bar.o bar main
@@ -39,7 +38,6 @@ sym_check prog.exe foo bar main
 
 cat Tupfile | sed 's/FOO := 1/FOO := 0/' > tmpTupfile
 mv tmpTupfile Tupfile
-tup touch Tupfile
 update
 
 sym_check bar.o bar main

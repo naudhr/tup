@@ -1,7 +1,7 @@
 #! /bin/sh -e
 # tup - A file-based build system
 #
-# Copyright (C) 2014-2021  Mike Shal <marfey@gmail.com>
+# Copyright (C) 2014-2024  Mike Shal <marfey@gmail.com>
 #
 # This program is free software; you can redistribute it and/or modify
 # it under the terms of the GNU General Public License version 2 as
@@ -27,12 +27,12 @@ cat > Tuprules.tup << HERE
 .gitignore
 : |> echo hey |>
 HERE
-tmkdir sub
+mkdir sub
 cat > sub/Tupfile << HERE
 include_rules
 : |> touch foo |> foo
 HERE
-tmkdir sub2
+mkdir sub2
 cat > sub2/Tupfile << HERE
 : |> touch bar |> bar
 HERE
@@ -48,7 +48,6 @@ tup_dep_exist . 'Tuprules.tup' 0 .
 # include_rules
 cat > Tupfile << HERE
 HERE
-tup touch Tupfile
 update
 tup_dep_no_exist . 'Tuprules.tup' 0 .
 

@@ -1,7 +1,7 @@
 #! /bin/sh -e
 # tup - A file-based build system
 #
-# Copyright (C) 2018-2021  Mike Shal <marfey@gmail.com>
+# Copyright (C) 2018-2024  Mike Shal <marfey@gmail.com>
 #
 # This program is free software; you can redistribute it and/or modify
 # it under the terms of the GNU General Public License version 2 as
@@ -39,14 +39,12 @@ set_full_deps
 cat > Tupfile << HERE
 : |> readlink ../external/arch; cat ../external/arch/foo.h > %o |> out.txt
 HERE
-tup touch Tupfile
 update
 
 echo foo1 | diff - out.txt
 
 update_null "No files should have been recompiled when nothing was changed."
 
-sleep 1
 echo foo2 > ../external/arch-x86/foo.h
 update
 

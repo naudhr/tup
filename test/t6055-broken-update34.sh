@@ -1,7 +1,7 @@
 #! /bin/sh -e
 # tup - A file-based build system
 #
-# Copyright (C) 2011-2021  Mike Shal <marfey@gmail.com>
+# Copyright (C) 2011-2024  Mike Shal <marfey@gmail.com>
 #
 # This program is free software; you can redistribute it and/or modify
 # it under the terms of the GNU General Public License version 2 as
@@ -28,10 +28,9 @@ cat > Tupfile << HERE
 : foo.o |> gcc %f -o %o && touch blah |> foo.exe | blah
 HERE
 echo 'int main(void) {return 0;}' > foo.c
-tup touch Tupfile foo.c
 update
 
-tup touch foo.c
+touch foo.c
 update foo.exe
 
 # Try again with an output that we don't specify (we update 'foo', so
@@ -41,10 +40,9 @@ cat > Tupfile << HERE
 : foo.c |> gcc -c %f -o %o && touch blah |> foo.o | blah
 : foo.o |> gcc %f -o %o |> foo.exe
 HERE
-tup touch Tupfile
 update
 
-tup touch foo.c
+touch foo.c
 update foo.exe
 
 eotup

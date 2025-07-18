@@ -1,7 +1,7 @@
 #! /bin/sh -e
 # tup - A file-based build system
 #
-# Copyright (C) 2012-2021  Mike Shal <marfey@gmail.com>
+# Copyright (C) 2012-2024  Mike Shal <marfey@gmail.com>
 #
 # This program is free software; you can redistribute it and/or modify
 # it under the terms of the GNU General Public License version 2 as
@@ -39,7 +39,6 @@ cat > Tupfile << HERE
 : |> sh ok.sh |> foo <group>
 : |> touch bar |> bar
 HERE
-tup touch ok.sh Tupfile
 update
 
 tup_dep_exist . 'foo' . '<group>'

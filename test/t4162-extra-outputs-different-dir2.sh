@@ -1,7 +1,7 @@
 #! /bin/sh -e
 # tup - A file-based build system
 #
-# Copyright (C) 2013-2021  Mike Shal <marfey@gmail.com>
+# Copyright (C) 2013-2024  Mike Shal <marfey@gmail.com>
 #
 # This program is free software; you can redistribute it and/or modify
 # it under the terms of the GNU General Public License version 2 as
@@ -28,7 +28,6 @@ update
 cat > Tupfile << HERE
 : |> echo first > %o && echo second > %o.2 |> out/file.txt | sub/%O.txt.2
 HERE
-tup touch Tupfile
 update_fail_msg "Expected to write to file 'sub/out/file.txt.2'"
 
 eotup

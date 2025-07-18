@@ -1,7 +1,7 @@
 #! /bin/sh -e
 # tup - A file-based build system
 #
-# Copyright (C) 2011-2021  Mike Shal <marfey@gmail.com>
+# Copyright (C) 2011-2024  Mike Shal <marfey@gmail.com>
 #
 # This program is free software; you can redistribute it and/or modify
 # it under the terms of the GNU General Public License version 2 as
@@ -24,7 +24,6 @@ single_threaded
 echo "void bar(void) {}" > bar.c
 echo "int main(void) {bork; return 0;}" > foo.c
 echo "void zap(void) {}" > zap.c
-tup touch bar.c foo.c zap.c
 cp ../testTupfile.tup Tupfile
 update_fail foo.o zap.o -k
 check_exist zap.o

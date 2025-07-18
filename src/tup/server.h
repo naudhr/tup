@@ -2,7 +2,7 @@
  *
  * tup - A file-based build system
  *
- * Copyright (C) 2008-2021  Mike Shal <marfey@gmail.com>
+ * Copyright (C) 2008-2024  Mike Shal <marfey@gmail.com>
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 as
@@ -39,6 +39,9 @@ struct server {
 	int exit_sig;
 	int output_fd;
 	int error_fd;
+	int need_namespacing;
+	int run_in_bash;
+	int streaming_mode;
 	pthread_mutex_t *error_mutex;
 };
 
@@ -67,7 +70,7 @@ int server_post_exit(void);
 int server_init(enum server_mode mode);
 int server_quit(void);
 int server_exec(struct server *s, int dfd, const char *cmd, struct tup_env *newenv,
-		struct tup_entry *dtent, int need_namespacing, int run_in_bash);
+		struct tup_entry *dtent);
 int server_postexec(struct server *s);
 int server_unlink(void);
 int server_is_dead(void);
@@ -78,6 +81,6 @@ int server_run_script(FILE *f, tupid_t tupid, const char *cmdline,
 		      struct tent_entries *env_root, char **rules);
 int serverless_run_script(FILE *f, const char *cmdline,
 		          struct tent_entries *env_root, char **rules);
-int server_symlink(struct server *s, struct tup_entry *dtent, const char *target, int dfd, const char *linkpath);
+int server_symlink(struct server *s, struct tup_entry *dtent, const char *target, int dfd, const char *linkpath, struct tup_entry *output_tent);
 
 #endif

@@ -1,7 +1,7 @@
 #! /bin/sh -e
 # tup - A file-based build system
 #
-# Copyright (C) 2014-2021  Mike Shal <marfey@gmail.com>
+# Copyright (C) 2014-2024  Mike Shal <marfey@gmail.com>
 #
 # This program is free software; you can redistribute it and/or modify
 # it under the terms of the GNU General Public License version 2 as
@@ -21,8 +21,8 @@
 . ./tup.sh
 check_windows
 
-tmkdir sub1
-tmkdir sub2
+mkdir sub1
+mkdir sub2
 cat > Tuprules.tup << HERE
 : foreach *.c |> ^ CC %f^ gcc -c %f -o %o |> %B.o
 HERE

@@ -1,7 +1,7 @@
 #! /bin/sh -e
 # tup - A file-based build system
 #
-# Copyright (C) 2018-2021  Mike Shal <marfey@gmail.com>
+# Copyright (C) 2018-2024  Mike Shal <marfey@gmail.com>
 #
 # This program is free software; you can redistribute it and/or modify
 # it under the terms of the GNU General Public License version 2 as
@@ -36,7 +36,6 @@ check_exist .tup/log/debug.log.0
 check_exist .tup/log/debug.log.1
 log_good "Create.*foo.txt"
 
-sleep 1
 touch foo.txt
 update --debug-logging
 log_good "Update.*foo.txt"

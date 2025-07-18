@@ -1,7 +1,7 @@
 #! /bin/sh -e
 # tup - A file-based build system
 #
-# Copyright (C) 2018-2021  Mike Shal <marfey@gmail.com>
+# Copyright (C) 2018-2024  Mike Shal <marfey@gmail.com>
 #
 # This program is free software; you can redistribute it and/or modify
 # it under the terms of the GNU General Public License version 2 as
@@ -34,7 +34,7 @@ cwd=$PWD
 cat > foo.c << HERE
 #include "longer.h"
 HERE
-tmkdir include
+mkdir include
 cat > include/Tupfile << HERE
 : $cwd/foo.h |> !tup_ln |> longer.h ../<headers>
 : $cwd/bar.h |> !tup_ln |> longer2.h ../<headers>
@@ -43,7 +43,7 @@ mcmd="gcc -c foo.c -o foo.o -I$PWD/system -I$PWD/include"
 cat > Tupfile << HERE
 : | <headers> |> $mcmd |> foo.o
 HERE
-tmkdir system
+mkdir system
 cat > system/longer.h << HERE
 #pragma GCC system_header
 #include_next <longer.h>
@@ -51,7 +51,7 @@ HERE
 cat > foo.h << HERE
 #include "longer2.h"
 HERE
-tup touch Tupfile bar.h
+touch bar.h
 update
 
 tup_dep_exist include longer.h . "$mcmd"

@@ -2,7 +2,7 @@
  *
  * tup - A file-based build system
  *
- * Copyright (C) 2011-2021  Mike Shal <marfey@gmail.com>
+ * Copyright (C) 2011-2024  Mike Shal <marfey@gmail.com>
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 as
@@ -30,8 +30,11 @@
 #include "compat.h"
 #include "option.h"
 #include "vardb.h"
-#include "inih/ini.h"
 #include "init.h"
+
+/* inih's ini.h */
+#include "ini.h"
+
 #include <assert.h>
 #include <errno.h>
 #include <fcntl.h>

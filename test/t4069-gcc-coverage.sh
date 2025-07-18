@@ -1,7 +1,7 @@
 #! /bin/sh -e
 # tup - A file-based build system
 #
-# Copyright (C) 2012-2021  Mike Shal <marfey@gmail.com>
+# Copyright (C) 2012-2024  Mike Shal <marfey@gmail.com>
 #
 # This program is free software; you can redistribute it and/or modify
 # it under the terms of the GNU General Public License version 2 as
@@ -49,7 +49,6 @@ int main(int argc, char **argv)
 HERE
 
 cp foo.c bar.c
-tup touch foo.c bar.c Tupfile
 update
 
 if strings foo.exe | grep '\.tup/mnt' > /dev/null; then

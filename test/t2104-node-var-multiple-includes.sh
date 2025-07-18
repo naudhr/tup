@@ -1,7 +1,7 @@
 #! /bin/sh -e
 # tup - A file-based build system
 #
-# Copyright (C) 2009-2021  Mike Shal <marfey@gmail.com>
+# Copyright (C) 2009-2024  Mike Shal <marfey@gmail.com>
 #
 # This program is free software; you can redistribute it and/or modify
 # it under the terms of the GNU General Public License version 2 as
@@ -21,11 +21,11 @@
 
 . ./tup.sh
 
-tmkdir sw
-tmkdir sw/lib
-tmkdir sw/app
-tmkdir sw/app/core
-tmkdir sw/test
+mkdir sw
+mkdir sw/lib
+mkdir sw/app
+mkdir sw/app/core
+mkdir sw/test
 
 cat > sw/Tuprules.tup << HERE
 &lib_tupfile = lib/Tupfile
@@ -64,7 +64,6 @@ vars += test
 : |> !vars |> test.txt
 HERE
 
-tup touch sw/Tuprules.tup sw/lib/Tupfile sw/app/Tuprules.tup sw/app/core/Tupfile sw/test/Tupfile
 update
 
 tup_dep_exist sw/lib 'echo sw lib > lib.txt' sw/lib lib.txt

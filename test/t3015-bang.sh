@@ -1,7 +1,7 @@
 #! /bin/sh -e
 # tup - A file-based build system
 #
-# Copyright (C) 2009-2021  Mike Shal <marfey@gmail.com>
+# Copyright (C) 2009-2024  Mike Shal <marfey@gmail.com>
 #
 # This program is free software; you can redistribute it and/or modify
 # it under the terms of the GNU General Public License version 2 as
@@ -27,7 +27,7 @@ headers = foo.h
 HERE
 echo '#define FOO 3' > foo.h.in
 echo '#include "foo.h"' > foo.c
-tup touch foo.h.in foo.c bar.c Tupfile
+touch bar.c
 update
 
 check_exist foo.o bar.o

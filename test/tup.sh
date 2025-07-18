@@ -1,7 +1,7 @@
 #! /bin/sh
 # tup - A file-based build system
 #
-# Copyright (C) 2008-2021  Mike Shal <marfey@gmail.com>
+# Copyright (C) 2008-2024  Mike Shal <marfey@gmail.com>
 #
 # This program is free software; you can redistribute it and/or modify
 # it under the terms of the GNU General Public License version 2 as
@@ -42,17 +42,23 @@ CYGWIN*)
 	in_windows=1
 	generate_script_name="build.bat"
 ;;
+Linux)
+	# Workaround for Linux using low-resolution filesystem timestamps based
+	# on CONFIG_HZ.
+	TUP_TESTING_HZ=$(zcat /proc/config.gz 2>/dev/null | grep '^CONFIG_HZ=' | sed 's/.*=//')
+	if [ "$TUP_TESTING_HZ" = "" ]; then
+		TUP_TESTING_HZ=$(cat /boot/config-$(uname -r) | grep '^CONFIG_HZ=' | sed 's/.*=//')
+		if [ "$TUP_TESTING_HZ" = "" ]; then
+			TUP_TESTING_HZ=100
+		fi
+	fi
+	export TUP_TESTING_HZ
+;;
 esac
 
 # override any user settings for grep
 GREP_OPTIONS=""
 export GREP_OPTIONS
-
-tmkdir()
-{
-	mkdir $1
-	tup touch $1
-}
 
 symeotup()
 {
@@ -365,7 +371,7 @@ parse_fail_msg()
 
 refactor()
 {
-	if ! tup refactor; then
+	if ! tup refactor $@; then
 		exit 1
 	fi
 }
@@ -491,7 +497,6 @@ varsetall()
 		fi
 		shift
 	done
-	tup touch tup.config
 }
 
 monitor()
@@ -570,6 +575,38 @@ generate()
 	$cmd "$@"
 }
 
+generate_fail_msg()
+{
+	msg=$1
+	shift
+	if tup generate "$@" 2>.tupoutput; then
+		echo "*** Expected generate to fail, but didn't" 1>&2
+		exit 1
+	else
+		if grep "$msg" .tupoutput > /dev/null; then
+			echo "Generate expected to fail, and failed for the right reason."
+		else
+			echo "*** Generate expected to fail because of: $msg" 1>&2
+			echo "*** But failed because of:" 1>&2
+			cat .tupoutput 1>&2
+			exit 1
+		fi
+	fi
+	rm .tupoutput
+}
+
+compiledb()
+{
+	if [ -n "$TUP_VALGRIND" ]; then
+		cmd="valgrind -q --error-exitcode=11 --sim-hints=fuse-compatible --track-fds=yes --track-origins=yes --leak-check=full tup compiledb"
+	elif [ -n "$TUP_HELGRIND" ]; then
+		cmd="valgrind -q --error-exitcode=12 --sim-hints=fuse-compatible --tool=helgrind tup compiledb"
+	else
+		cmd="tup compiledb"
+	fi
+	$cmd "$@"
+}
+
 re_init()
 {
 	rm -rf .tup
@@ -606,7 +643,6 @@ HERE
 		plat_ldflags="$plat_ldflags -lasan -lubsan"
 	fi
 	gcc client.c ../../libtup_client.a -o client $plat_ldflags -ldl
-	tup touch client
 }
 
 check_monitor_supported()
@@ -708,22 +744,10 @@ check_tup_suid()
 
 check_python()
 {
-	if ! which python > /dev/null 2>&1; then
-		echo "[33mNo python found - skipping test.[0m"
+	if ! which python3 > /dev/null 2>&1; then
+		echo "[33mNo python3 found - skipping test.[0m"
 		eotup
 	fi
-	# Need 2.6 for the -B flag
-	cat > tmpversioncheck.py << HERE
-import sys
-if sys.version_info < (2, 6):
-    sys.exit(1)
-sys.exit(0)
-HERE
-	if ! python tmpversioncheck.py; then
-		echo "[33mPython < version 2.6 found - skipping test.[0m"
-		eotup
-	fi
-	rm tmpversioncheck.py
 }
 
 check_bash()
@@ -735,6 +759,16 @@ check_bash()
 		echo "[33mNo bash found - skipping test.[0m"
 		eotup
     fi
+}
+
+check_ccache_version()
+{
+	min_version="4.7"
+	version=$( (echo $min_version; ccache --version | grep 'ccache version' | sed 's/ccache version //') | sort -V | head -1)
+	if [ "$version" != "$min_version" ]; then
+		echo "[33mSkipping test: Expected ccache version >= $min_version[0m"
+		eotup
+	fi
 }
 
 single_threaded()

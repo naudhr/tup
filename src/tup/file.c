@@ -2,7 +2,7 @@
  *
  * tup - A file-based build system
  *
- * Copyright (C) 2008-2021  Mike Shal <marfey@gmail.com>
+ * Copyright (C) 2008-2024  Mike Shal <marfey@gmail.com>
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 as
@@ -135,6 +135,7 @@ static int add_symlinks(const char *path, struct file_info *finfo)
 	if(linkpath) {
 		if(handle_open_file(ACCESS_READ, linkpath, finfo) < 0) {
 			fprintf(stderr, "tup error: Failed to call handle_open_file on a symlink event '%s'\n", linkpath);
+			free(linkpath);
 			return -1;
 		}
 		free(linkpath);
@@ -242,7 +243,7 @@ int write_files(FILE *f, tupid_t cmdid, struct file_info *info, int *warnings,
 
 	if(check_only == CHECK_SUCCESS) {
 		while(!TAILQ_EMPTY(&info->tmpdir_list)) {
-			int match = 0;
+			struct tup_entry *match = NULL;
 
 			tmpdir = TAILQ_FIRST(&info->tmpdir_list);
 			if(exclusion_match(f, &info->exclusion_root, tmpdir->dirname, &match) < 0)
@@ -342,7 +343,7 @@ static int add_node_to_tree(tupid_t dt, const char *filename,
 	if(get_path_elements(filename, &pg) < 0)
 		return -1;
 
-	new_dt = find_dir_tupid_dt_pg(dt, &pg, &pel, 1, full_deps);
+	new_dt = find_dir_tupid_dt_pg(dt, &pg, &pel, SOTGV_CREATE_GHOSTS, full_deps);
 	if(new_dt < 0)
 		return -1;
 	if(new_dt == 0) {
@@ -360,7 +361,7 @@ static int add_node_to_tree(tupid_t dt, const char *filename,
 	if(tup_db_select_tent_part(new_dtent, pel->path, pel->len, &tent) < 0)
 		return -1;
 	if(!tent) {
-		time_t mtime = -1;
+		struct timespec mtime = INVALID_MTIME;
 		int type = TUP_NODE_GHOST;
 		if(full_deps && (pg.pg_flags & PG_OUTSIDE_TUP)) {
 			if(get_outside_tup_mtime(new_dtent, pel, &mtime) < 0)
@@ -378,7 +379,7 @@ static int add_node_to_tree(tupid_t dt, const char *filename,
 	free_pel(pel);
 	del_pel_group(&pg);
 
-	if(tent->type == TUP_NODE_DIR || tent->type == TUP_NODE_GENERATED_DIR || tent->mtime == 0) {
+	if(tent->type == TUP_NODE_DIR || tent->type == TUP_NODE_GENERATED_DIR || tent->mtime.tv_sec == 0) {
 		/* We don't track dependencies on directory nodes for commands. Note that
 		 * some directory accesses may create ghost nodes as placeholders for the
 		 * directory until a real directory is created there (eg: t5077). In this
@@ -397,13 +398,16 @@ static int add_node_to_tree(tupid_t dt, const char *filename,
 
 #ifdef _WIN32
 #include <windows.h>
+
 #define WINDOWS_TICK 10000000
 #define SEC_TO_UNIX_EPOCH 11644473600LL
 
-static unsigned filetime_to_epoch(FILETIME *ft)
+static struct timespec ticks_to_timespec(long long ticks)
 {
-        long long ticks = (((long long)ft->dwHighDateTime) << 32) + (long long)ft->dwLowDateTime;
-        return (unsigned)(ticks / WINDOWS_TICK - SEC_TO_UNIX_EPOCH);
+	struct timespec ts;
+	ts.tv_sec = ticks / WINDOWS_TICK - SEC_TO_UNIX_EPOCH;
+	ts.tv_nsec = ticks % WINDOWS_TICK * 100;
+	return ts;
 }
 
 static int file_set_mtime(struct tup_entry *tent, const char *file)
@@ -435,10 +439,16 @@ static int file_set_mtime(struct tup_entry *tent, const char *file)
 		fprintf(stderr, "tup error: GetFileAttributesExW(\"%ls\") failed: 0x%08lx\n", widefile, GetLastError());
 		return -1;
 	}
-	if(tup_db_set_mtime(tent, filetime_to_epoch(&data.ftLastWriteTime)) < 0)
+	if(tup_db_set_mtime(tent, ticks_to_timespec(FILETIME_TO_TICKS(&data.ftLastWriteTime))) < 0)
 		return -1;
 	return 0;
 }
+
+struct timespec win_mtime(struct stat *buf)
+{
+	return ticks_to_timespec(buf->st_mtime);
+}
+
 #else
 static int file_set_mtime(struct tup_entry *tent, const char *file)
 {
@@ -637,9 +647,17 @@ static int create_ignored_file(FILE *f, struct file_entry *w)
 	struct path_element *pel = NULL;
 	struct tup_entry *tent;
 	struct tup_entry *dtent;
+	struct pel_group pg;
+	int type = TUP_NODE_FILE;
 	tupid_t dt;
 
-	dt = find_dir_tupid_dt(DOT_DT, w->filename, &pel, SOTGV_IGNORE_DIRS, 1);
+	if(get_path_elements(w->filename, &pg) < 0)
+		return -1;
+	if(pg.pg_flags & PG_OUTSIDE_TUP) {
+		type = TUP_NODE_GHOST;
+	}
+
+	dt = find_dir_tupid_dt_pg(DOT_DT, &pg, &pel, SOTGV_IGNORE_DIRS, 1);
 	if(dt < 0) {
 		fprintf(f, "tup error: Unable to create directory tree for ignored file: %s\n", w->filename);
 		return -1;
@@ -648,11 +666,26 @@ static int create_ignored_file(FILE *f, struct file_entry *w)
 		fprintf(f, "tup internal error: create_ignored_file() didn't get a final pel pointer for file: %s\n", w->filename);
 		return -1;
 	}
-	if(tup_entry_add(dt, &dtent) < 0)
+	if(tup_entry_add(dt, &dtent) < 0) {
+		fprintf(f, "tup internal error: Unable to add entry for tupid %lli\n", dt);
 		return -1;
-	tent = tup_db_create_node_part(dtent, pel->path, pel->len, TUP_NODE_FILE, -1, NULL);
-	if(!tent)
+	}
+	if(tup_db_select_tent_part(dtent, pel->path, pel->len, &tent) < 0) {
 		return -1;
+	}
+	if(tent && tent->type == TUP_NODE_GENERATED) {
+		fprintf(f, "tup error: Unable to exclude a generated file: ");
+		print_tup_entry(f, tent);
+		fprintf(f, "\n");
+		return -1;
+	}
+	tent = tup_db_create_node_part(dtent, pel->path, pel->len, type, -1, NULL);
+	if(!tent) {
+		fprintf(f, "tup internal error: Unable to create node for file '%.*s' relative to directory: ", pel->len, pel->path);
+		print_tup_entry(f, dtent);
+		fprintf(f, "\n");
+		return -1;
+	}
 	free_pel(pel);
 	return 0;
 }
@@ -671,24 +704,9 @@ static int update_write_info(FILE *f, tupid_t cmdid, struct file_info *info,
 		tupid_t newdt;
 		struct path_element *pel = NULL;
 		struct pel_group pg;
-		int match = 0;
+		struct tup_entry *match = NULL;
 
 		w = TAILQ_FIRST(&info->write_list);
-
-		if(exclusion_match(f, &info->exclusion_root, w->filename, &match) < 0)
-			return -1;
-		if(match) {
-			if(create_ignored_file(f, w) < 0)
-				return -1;
-			goto out_skip;
-		}
-
-		/* Remove duplicate write entries */
-		TAILQ_FOREACH_SAFE(r, &info->write_list, list, tmp) {
-			if(r != w && (name_cmp(w->filename, r->filename) == 0)) {
-				del_file_entry(&info->write_list, r);
-			}
-		}
 
 		if(get_path_elements(w->filename, &pg) < 0)
 			return -1;
@@ -701,8 +719,27 @@ static int update_write_info(FILE *f, tupid_t cmdid, struct file_info *info,
 			goto out_skip;
 		}
 
+		if(exclusion_match(f, &info->exclusion_root, w->filename, &match) < 0)
+			return -1;
+		if(match) {
+			if(create_ignored_file(f, w) < 0) {
+				fprintf(f, "tup error: Failed to create ignored file. The filename '%s' matched an exclusion pattern: ", w->filename);
+				print_tup_entry(f, match);
+				fprintf(f, "\n");
+				return -1;
+			}
+			goto out_skip;
+		}
+
+		/* Remove duplicate write entries */
+		TAILQ_FOREACH_SAFE(r, &info->write_list, list, tmp) {
+			if(r != w && (name_cmp(w->filename, r->filename) == 0)) {
+				del_file_entry(&info->write_list, r);
+			}
+		}
+
 		tent = NULL;
-		newdt = find_dir_tupid_dt_pg(DOT_DT, &pg, &pel, 0, 0);
+		newdt = find_dir_tupid_dt_pg(DOT_DT, &pg, &pel, SOTGV_NO_GHOST, 0);
 		del_pel_group(&pg);
 		if(newdt > 0) {
 			struct tup_entry *dtent;
@@ -810,7 +847,7 @@ static int update_read_info(FILE *f, tupid_t cmdid, struct file_info *info,
 	struct tent_entries root = TENT_ENTRIES_INITIALIZER;
 
 	while(!TAILQ_EMPTY(&info->read_list)) {
-		int match = 0;
+		struct tup_entry *match = NULL;
 		r = TAILQ_FIRST(&info->read_list);
 
 		if(exclusion_match(f, &info->exclusion_root, r->filename, &match) < 0)

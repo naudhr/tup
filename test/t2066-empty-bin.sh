@@ -1,7 +1,7 @@
 #! /bin/sh -e
 # tup - A file-based build system
 #
-# Copyright (C) 2009-2021  Mike Shal <marfey@gmail.com>
+# Copyright (C) 2009-2024  Mike Shal <marfey@gmail.com>
 #
 # This program is free software; you can redistribute it and/or modify
 # it under the terms of the GNU General Public License version 2 as
@@ -27,7 +27,7 @@ obj-@(FOO) += foo.c
 !ld.EMPTY = |> ar crs %o |>
 : {objs} |> !ld |> built-in.o
 HERE
-tup touch foo.c Tupfile
+touch foo.c
 varsetall FOO=y
 parse
 tup_object_exist . 'gcc -c foo.c -o foo.o'

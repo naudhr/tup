@@ -1,7 +1,7 @@
 #! /bin/sh -e
 # tup - A file-based build system
 #
-# Copyright (C) 2009-2021  Mike Shal <marfey@gmail.com>
+# Copyright (C) 2009-2024  Mike Shal <marfey@gmail.com>
 #
 # This program is free software; you can redistribute it and/or modify
 # it under the terms of the GNU General Public License version 2 as
@@ -25,7 +25,6 @@ check_no_windows shell
 cat > Tupfile << HERE
 : |> echo 'foo' > %o |> file1
 HERE
-tup touch Tupfile
 update
 echo 'foo' | diff - file1
 
@@ -34,7 +33,6 @@ cat > Tupfile << HERE
 : |> echo 'foo' > %o |> file1
 : |> touch file2; ln -sf file2 file1 |> file2
 HERE
-tup touch Tupfile
 update_fail
 
 # The echo 'foo' > file1 command should run again. Note that file1 was a
@@ -43,7 +41,6 @@ cat > Tupfile << HERE
 : |> echo 'foo' > %o |> file1
 : file1 |> ln -s file1 %o |> file2
 HERE
-tup touch Tupfile
 update
 echo 'foo' | diff - file1
 

@@ -1,7 +1,7 @@
 #! /bin/sh -e
 # tup - A file-based build system
 #
-# Copyright (C) 2018-2021  Mike Shal <marfey@gmail.com>
+# Copyright (C) 2018-2024  Mike Shal <marfey@gmail.com>
 #
 # This program is free software; you can redistribute it and/or modify
 # it under the terms of the GNU General Public License version 2 as
@@ -29,7 +29,7 @@ cat ignoreghost 2>/dev/null
 cat real
 touch \$1
 HERE
-tup touch ignore real
+touch ignore real
 update
 
 tup_dep_exist . real . 'sh run.sh output.txt'

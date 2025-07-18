@@ -1,7 +1,7 @@
 #! /bin/sh -e
 # tup - A file-based build system
 #
-# Copyright (C) 2018-2021  Mike Shal <marfey@gmail.com>
+# Copyright (C) 2018-2024  Mike Shal <marfey@gmail.com>
 #
 # This program is free software; you can redistribute it and/or modify
 # it under the terms of the GNU General Public License version 2 as
@@ -41,18 +41,17 @@ cat > run.sh << HERE
 cat ../external/foo.txt
 ls ../external > /dev/null
 HERE
-tup touch Tupfile foo.c bar.c
+touch foo.c bar.c
 update
 
 if [ "$in_windows" = "1" ]; then
-	prefix="`echo $PWD | sed 's,/cygdrive/c,c:,'`"
+	prefix="`echo $PWD | sed 's,/c,c:,'`"
 else
 	prefix="$PWD"
 fi
 tup_dep_no_exist $prefix/.. external . 'sh run.sh 1'
 tup_dep_no_exist $prefix/.. external . 'sh run.sh 2'
 
-sleep 1
 touch ../external/bar.txt
 update_null "No files should have been recompiled when nothing was changed."
 

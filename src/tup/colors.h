@@ -2,7 +2,7 @@
  *
  * tup - A file-based build system
  *
- * Copyright (C) 2010-2021  Mike Shal <marfey@gmail.com>
+ * Copyright (C) 2010-2024  Mike Shal <marfey@gmail.com>
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 as
@@ -25,6 +25,7 @@
 #include "db_types.h"
 
 void color_init(void);
+void color_disable(void);
 void color_set(FILE *f);
 const char *color_type(enum TUP_NODE_TYPE type);
 const char *color_append_normal(void);

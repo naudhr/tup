@@ -2,7 +2,7 @@
  *
  * tup - A file-based build system
  *
- * Copyright (C) 2013-2021  Mike Shal <marfey@gmail.com>
+ * Copyright (C) 2013-2024  Mike Shal <marfey@gmail.com>
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 as
@@ -53,5 +53,29 @@ int estring_append(struct estring *e, const char *src, int len)
 	memcpy(e->s + e->len, src, len);
 	e->len += len;
 	e->s[e->len] = 0;
+	return 0;
+}
+
+int estring_append_escape(struct estring *e, const char *src, int len, char escape)
+{
+	const char *p = src;
+	const char *endp = src + len;
+	while(p < endp) {
+		const char *next;
+		next = memchr(p, escape, endp - p);
+		if(!next) {
+			return estring_append(e, p, endp - p);
+		}
+		if(estring_append(e, p, next - p) < 0)
+			return -1;
+		if(escape == '\'') {
+			if(estring_append(e, "'\"'\"'", 5) < 0)
+				return -1;
+		} else {
+			if(estring_append(e, "\\\"", 2) < 0)
+				return -1;
+		}
+		p = next + 1;
+	}
 	return 0;
 }

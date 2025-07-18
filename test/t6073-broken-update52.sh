@@ -1,7 +1,7 @@
 #! /bin/sh -e
 # tup - A file-based build system
 #
-# Copyright (C) 2017-2021  Mike Shal <marfey@gmail.com>
+# Copyright (C) 2017-2024  Mike Shal <marfey@gmail.com>
 #
 # This program is free software; you can redistribute it and/or modify
 # it under the terms of the GNU General Public License version 2 as
@@ -24,8 +24,8 @@
 # TUP_NODE_DIR check from create_work().
 . ./tup.sh
 
-tmkdir dir1
-tmkdir dir2
+mkdir dir1
+mkdir dir2
 touch dir1/ok.in
 cat > Tupfile << HERE
 : dir2/ok.in |> cp %f %o |> %B.out

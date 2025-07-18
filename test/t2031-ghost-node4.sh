@@ -1,7 +1,7 @@
 #! /bin/sh -e
 # tup - A file-based build system
 #
-# Copyright (C) 2009-2021  Mike Shal <marfey@gmail.com>
+# Copyright (C) 2009-2024  Mike Shal <marfey@gmail.com>
 #
 # This program is free software; you can redistribute it and/or modify
 # it under the terms of the GNU General Public License version 2 as
@@ -27,7 +27,6 @@ cat > Tupfile << HERE
 : |> ./ok.sh > %o |> output.txt
 HERE
 chmod +x ok.sh
-tup touch ok.sh Tupfile
 update
 echo nofile | diff output.txt -
 tup_dep_exist . ghost . './ok.sh > output.txt'
@@ -37,7 +36,6 @@ tup_dep_exist . ghost . './ok.sh > output.txt'
 cat > ok.sh << HERE
 echo nofile
 HERE
-tup touch ok.sh
 update
 tup_object_no_exist . ghost
 
@@ -45,7 +43,6 @@ tup_object_no_exist . ghost
 # after deleting output.txt from behind tup's back. The output.txt file
 # shouldn't be re-created (as it would be in t2028).
 echo 'hey' > ghost
-tup touch ghost
 rm -f output.txt
 update --no-scan
 check_not_exist output.txt

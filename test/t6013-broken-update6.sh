@@ -1,7 +1,7 @@
 #! /bin/sh -e
 # tup - A file-based build system
 #
-# Copyright (C) 2009-2021  Mike Shal <marfey@gmail.com>
+# Copyright (C) 2009-2024  Mike Shal <marfey@gmail.com>
 #
 # This program is free software; you can redistribute it and/or modify
 # it under the terms of the GNU General Public License version 2 as
@@ -33,17 +33,14 @@ HERE
 echo '#include "foo.h"' > afoo.c
 echo '#include "foo.h"' > bar.c
 touch foo.h
-tup touch afoo.c bar.c foo.h
 update
 check_exist afoo.o bar.o
 rm -f bar.o
 echo 'bork' >> afoo.c
-tup touch foo.h
 update_fail
 check_not_exist bar.o
 
 echo '#include "foo.h"' > afoo.c
-tup touch afoo.c
 update
 check_exist afoo.o bar.o
 

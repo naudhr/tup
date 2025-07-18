@@ -1,7 +1,7 @@
 #! /bin/sh -e
 # tup - A file-based build system
 #
-# Copyright (C) 2010-2021  Mike Shal <marfey@gmail.com>
+# Copyright (C) 2010-2024  Mike Shal <marfey@gmail.com>
 #
 # This program is free software; you can redistribute it and/or modify
 # it under the terms of the GNU General Public License version 2 as
@@ -34,12 +34,10 @@ cat > foo.c << HERE
 #include "foo.h"
 HERE
 
-tup touch Tupfile foo.c zap.c
+touch zap.c
 update_fail -k
 
-if tup upd -k 2>&1 | grep gcc | wc -l | grep 1 > /dev/null; then
-	:
-else
+if [ "$(tup -k 2>&1 | grep -c gcc)" != 1 ]; then
 	echo "Error: Only one file should have been compiled." 1>&2
 	exit 1
 fi

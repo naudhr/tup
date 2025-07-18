@@ -1,7 +1,7 @@
 #! /bin/sh -e
 # tup - A file-based build system
 #
-# Copyright (C) 2018-2021  Mike Shal <marfey@gmail.com>
+# Copyright (C) 2018-2024  Mike Shal <marfey@gmail.com>
 #
 # This program is free software; you can redistribute it and/or modify
 # it under the terms of the GNU General Public License version 2 as
@@ -32,12 +32,10 @@ cat > Tupfile << HERE
 HERE
 tup parse
 echo ohai > output.txt
-tup touch output.txt
 
 cat > Tupfile << HERE
 : output.txt |> touch %o |> output.txt
 HERE
-tup touch Tupfile
 update_fail_msg "tup error.*lists this file as both an input and an output: output.txt"
 
 eotup

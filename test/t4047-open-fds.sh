@@ -1,7 +1,7 @@
 #! /bin/sh -e
 # tup - A file-based build system
 #
-# Copyright (C) 2011-2021  Mike Shal <marfey@gmail.com>
+# Copyright (C) 2011-2024  Mike Shal <marfey@gmail.com>
 #
 # This program is free software; you can redistribute it and/or modify
 # it under the terms of the GNU General Public License version 2 as
@@ -19,23 +19,28 @@
 # Make sure a sub-process only has the minimum necessary fds open.
 . ./tup.sh
 
+# Later versions of valgrind have a pipe open that this test picks up and
+# erroneously fails.
+unset TUP_HELGRIND
+unset TUP_VALGRIND
+
 if [ ! "$tupos" = "Linux" ]; then
 	echo "Sub-process fds only checked under linux. Skipping test."
 	eotup
 fi
 cat > Tupfile << HERE
-: |> ls -l /proc/\$\$/fd > %o |> fds.txt
+: |> ls -l /proc/self/fd > %o |> fds.txt
 HERE
-tup touch Tupfile
+ls -l /proc/self/fd > .tup/curfds.txt
 update
 
 # On Gentoo, stdout points to output-0, while on Ubuntu, it points to the
 # redirected file (fds.txt). This might be a bash vs dash thing.
-# On Fedora, something keeps /var/lib/sss/mc/passwd open (maybe https://bugzilla.redhat.com/show_bug.cgi?id=1356542)
-text=`cat fds.txt | grep -v ' 0 .*/dev/null' | grep -v ' 1 .*output-' | grep -v ' 1 .*fds.txt' | grep -v ' 2 .*errors' | grep -v ' 3 .*deps-' | grep -v '/var/lib/sss/mc/passwd'`
-if [ "$text" != "total 0" ]; then
-	echo "Error: These fds shouldn't be open: $text" 1>&2
-	exit 1
-fi
+cat fds.txt | grep -v ' 0 -> /dev/null' | grep -v ' 1 -> .*/output-' | grep -v ' 1 -> .*/fds.txt' | grep -v ' 2 -> .*/output' | grep -v ' 3 -> .*/deps-' | grep -v ' -> /proc/.*/fd' | while read i; do
+	if ! grep -F "$i" .tup/curfds.txt > /dev/null; then
+		echo "Error: $i shouldn't be open" 1>&2
+		exit 1
+	fi
+done
 
 eotup

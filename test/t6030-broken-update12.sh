@@ -1,7 +1,7 @@
 #! /bin/sh -e
 # tup - A file-based build system
 #
-# Copyright (C) 2009-2021  Mike Shal <marfey@gmail.com>
+# Copyright (C) 2009-2024  Mike Shal <marfey@gmail.com>
 #
 # This program is free software; you can redistribute it and/or modify
 # it under the terms of the GNU General Public License version 2 as
@@ -26,18 +26,17 @@
 # This test just mimics how it was discovered.
 
 . ./tup.sh
-tmkdir sub
+mkdir sub
 cat > sub/Tupfile << HERE
 : foreach *.c |> gcc -c %f -o %o |> %B.o
 HERE
 cat > Tupfile << HERE
 : sub/*.o |> ar rcs %o %f |> libfoo.a
 HERE
-tup touch sub/foo.c sub/bar.c sub/Tupfile Tupfile
+touch sub/foo.c sub/bar.c
 update
 
 rm sub/bar.c
-tup rm sub/bar.c
 update
 
 eotup

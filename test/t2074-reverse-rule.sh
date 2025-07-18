@@ -1,7 +1,7 @@
 #! /bin/sh -e
 # tup - A file-based build system
 #
-# Copyright (C) 2010-2021  Mike Shal <marfey@gmail.com>
+# Copyright (C) 2010-2024  Mike Shal <marfey@gmail.com>
 #
 # This program is free software; you can redistribute it and/or modify
 # it under the terms of the GNU General Public License version 2 as
@@ -26,7 +26,7 @@ for k, v in pairs(binaries) do
 	tup.rule('busybox', 'ln -s %f %o', v)
 end
 HERE
-tup touch busybox Tupfile.lua
+touch busybox
 update
 
 tup_dep_exist . 'ln -s busybox ar' . ar

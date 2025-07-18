@@ -1,7 +1,7 @@
 #! /bin/sh -e
 # tup - A file-based build system
 #
-# Copyright (C) 2009-2021  Mike Shal <marfey@gmail.com>
+# Copyright (C) 2009-2024  Mike Shal <marfey@gmail.com>
 #
 # This program is free software; you can redistribute it and/or modify
 # it under the terms of the GNU General Public License version 2 as
@@ -23,7 +23,6 @@ cat > Tupfile << HERE
 : |> echo foo > %o |> file1
 : |> echo foo2 > %o |> file2
 HERE
-tup touch Tupfile
 update
 echo foo | diff - file1
 echo foo2 | diff - file2
@@ -34,7 +33,6 @@ cat > Tupfile << HERE
 : |> echo foo2 > %o |> file2
 : |> echo bar > file1 ; echo bar2 > file2; touch file3 |> file3
 HERE
-tup touch Tupfile
 update_fail
 
 cat > Tupfile << HERE
@@ -42,7 +40,6 @@ cat > Tupfile << HERE
 : |> echo foo2 > %o |> file2
 : |> echo bar > %o |> file3
 HERE
-tup touch Tupfile
 update
 echo foo | diff - file1
 echo foo2 | diff - file2

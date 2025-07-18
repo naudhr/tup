@@ -1,7 +1,7 @@
 #! /bin/sh -e
 # tup - A file-based build system
 #
-# Copyright (C) 2012-2021  Mike Shal <marfey@gmail.com>
+# Copyright (C) 2012-2024  Mike Shal <marfey@gmail.com>
 #
 # This program is free software; you can redistribute it and/or modify
 # it under the terms of the GNU General Public License version 2 as
@@ -26,14 +26,12 @@ set_full_deps
 cp ../testTupfile.tup Tupfile
 
 echo "int main(void) {}" > foo.c
-tup touch foo.c
 tup parse > .output.txt 2>&1
 gitignore_bad / .output.txt
 update
 sym_check foo.o main
 
 echo "void foo2(void) {}" >> foo.c
-tup touch foo.c
 update
 sym_check foo.o main foo2
 
@@ -53,14 +51,12 @@ esac
 tup_dep_exist $path $filename . 'gcc -c foo.c -o foo.o'
 
 tup fake_mtime $path$filename 5
-if tup upd | grep 'gcc -c' | wc -l | grep 1 > /dev/null; then
-	:
-else
+if [ "$(tup | grep -c 'gcc -c')" != 1 ]; then
 	echo "Changing timestamp on /usr/bin/gcc should have caused foo.c to re-compile." 1>&2
 	exit 1
 fi
 
-if [ "`tup entry $path$filename`" = "" ]; then
+if [ -z "$(tup entry $path$filename)" ]; then
 	echo "Error: tup entry failed on $path$filename" 1>&2
 	exit 1
 fi

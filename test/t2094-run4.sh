@@ -1,7 +1,7 @@
 #! /bin/sh -e
 # tup - A file-based build system
 #
-# Copyright (C) 2011-2021  Mike Shal <marfey@gmail.com>
+# Copyright (C) 2011-2024  Mike Shal <marfey@gmail.com>
 #
 # This program is free software; you can redistribute it and/or modify
 # it under the terms of the GNU General Public License version 2 as
@@ -31,7 +31,7 @@ for i in *.[co]; do
 	echo ": |> echo \$1 \$i |>"
 done
 HERE
-tup touch Tupfile ok.sh foo.c bar.c
+touch foo.c bar.c
 update
 
 tup_object_exist . 'echo good foo.c'
@@ -41,7 +41,8 @@ tup_object_exist . 'echo good bar.o'
 tup_object_no_exist . 'echo bad foo.o'
 tup_object_no_exist . 'echo bad bar.o'
 
-tup touch Tupfile
+# Force re-parsing the Tupfile
+touch Tupfile
 update
 tup_object_exist . 'echo good foo.c'
 tup_object_exist . 'echo good bar.c'

@@ -1,7 +1,7 @@
 #! /bin/sh -e
 # tup - A file-based build system
 #
-# Copyright (C) 2013-2021  Mike Shal <marfey@gmail.com>
+# Copyright (C) 2013-2024  Mike Shal <marfey@gmail.com>
 #
 # This program is free software; you can redistribute it and/or modify
 # it under the terms of the GNU General Public License version 2 as
@@ -21,8 +21,8 @@
 
 . ./tup.sh
 
-tmkdir out1
-tmkdir out2
+mkdir out1
+mkdir out2
 
 cat > out1/Tupfile << HERE
 : ../input.txt |> cat %f > %o |> ../foo/out.txt
@@ -35,7 +35,6 @@ update
 
 # Try to partial update the directory containing the output
 echo 'hey' > input.txt
-tup touch input.txt
 update_partial foo
 
 echo 'hey' | diff - foo/out.txt
@@ -43,7 +42,6 @@ echo 'orig' | diff - bar/out.txt
 
 # Try to partial update the directory containing the command
 echo 'yo' > input.txt
-tup touch input.txt
 update_partial out1
 
 echo 'yo' | diff - foo/out.txt
@@ -51,7 +49,6 @@ echo 'orig' | diff - bar/out.txt
 
 # Try to partial update the generated file
 echo 'new' > input.txt
-tup touch input.txt
 update_partial foo/out.txt
 
 echo 'new' | diff - foo/out.txt

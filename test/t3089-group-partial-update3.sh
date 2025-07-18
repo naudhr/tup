@@ -1,7 +1,7 @@
 #! /bin/sh -e
 # tup - A file-based build system
 #
-# Copyright (C) 2018-2021  Mike Shal <marfey@gmail.com>
+# Copyright (C) 2018-2024  Mike Shal <marfey@gmail.com>
 #
 # This program is free software; you can redistribute it and/or modify
 # it under the terms of the GNU General Public License version 2 as
@@ -23,14 +23,12 @@
 cat > Tupfile << HERE
 : <group2> |> touch %o |> final.txt <final>
 HERE
-tup touch Tupfile
 update_partial '<final>'
 
 cat > Tupfile << HERE
 : |> touch %o |> out.txt <group>
 : <group2> |> touch %o |> final.txt <final>
 HERE
-tup touch Tupfile
 update_partial '<final>'
 
 check_not_exist out.txt
@@ -39,7 +37,6 @@ cat > Tupfile << HERE
 : <group> |> touch %o |> out2.txt <group2>
 : <group2> |> touch %o |> final.txt <final>
 HERE
-tup touch Tupfile
 update_partial '<final>'
 
 check_not_exist out.txt
@@ -50,7 +47,6 @@ cat > Tupfile << HERE
 : <group> |> touch %o |> out2.txt <group2>
 : <group2> |> touch %o |> final.txt <final>
 HERE
-tup touch Tupfile
 update_partial '<final>'
 
 check_exist out.txt out2.txt final.txt

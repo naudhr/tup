@@ -1,7 +1,7 @@
 #! /bin/sh -e
 # tup - A file-based build system
 #
-# Copyright (C) 2009-2021  Mike Shal <marfey@gmail.com>
+# Copyright (C) 2009-2024  Mike Shal <marfey@gmail.com>
 #
 # This program is free software; you can redistribute it and/or modify
 # it under the terms of the GNU General Public License version 2 as
@@ -24,7 +24,7 @@
 
 . ./tup.sh
 
-tmkdir include
+mkdir include
 cat > ok.sh << HERE
 if [ -f include/ghost ]; then cat include/ghost; else echo nofile; fi
 HERE
@@ -34,13 +34,11 @@ cat > Tupfile << HERE
 HERE
 chmod +x ok.sh
 cp ok.sh foo.sh
-tup touch ok.sh foo.sh Tupfile
 update
 echo nofile | diff output.txt -
 echo nofile | diff foo-output.txt -
 
 echo 'alive' > include/ghost
-tup touch include/ghost
 update
 echo alive | diff output.txt -
 echo alive | diff foo-output.txt -

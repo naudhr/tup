@@ -1,7 +1,7 @@
 #! /bin/sh -e
 # tup - A file-based build system
 #
-# Copyright (C) 2018-2021  Mike Shal <marfey@gmail.com>
+# Copyright (C) 2018-2024  Mike Shal <marfey@gmail.com>
 #
 # This program is free software; you can redistribute it and/or modify
 # it under the terms of the GNU General Public License version 2 as
@@ -26,8 +26,10 @@
 
 . ./tup.sh
 
+check_ccache_version
+
 # Don't kill the user's ccache
-export CCACHE_DIR=$PWD/.ccache
+export CCACHE_DIR=.ccache
 
 cat > Tupfile << HERE
 export CCACHE_DIR
@@ -35,8 +37,8 @@ export CCACHE_DIR
 : foo.o |> gcc %f -o %o |> foo.exe
 HERE
 
-tmkdir a
-tmkdir b
+mkdir a
+mkdir b
 
 echo '#define FOO 3' > b/foo.h
 
@@ -61,13 +63,12 @@ update
 sleep 1
 
 # Now rebuild foo.c so we use the ccache
-tup touch foo.c
+touch foo.c
 update
 
 ./foo.exe 3
 
 echo '#define FOO 4' > a/foo.h
-tup touch a/foo.h
 update
 ./foo.exe 4
 

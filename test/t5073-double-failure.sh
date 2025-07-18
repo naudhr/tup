@@ -1,7 +1,7 @@
 #! /bin/sh -e
 # tup - A file-based build system
 #
-# Copyright (C) 2011-2021  Mike Shal <marfey@gmail.com>
+# Copyright (C) 2011-2024  Mike Shal <marfey@gmail.com>
 #
 # This program is free software; you can redistribute it and/or modify
 # it under the terms of the GNU General Public License version 2 as
@@ -30,7 +30,7 @@
 # real error is that libfoo.a is not specified as an input.
 . ./tup.sh
 
-tmkdir sub
+mkdir sub
 cat > sub/Tupfile << HERE
 : foreach *.c |> gcc -c %f -o %o |> %B.o {objs}
 : {objs} |> ar crs %o %f |> libfoo.a
@@ -39,7 +39,6 @@ cat > sub/lib.c << HERE
 int foo(void) {return 3;}
 HERE
 
-tup touch sub/Tupfile sub/lib.c
 update
 
 cat > Tupfile << HERE
@@ -56,8 +55,6 @@ int main(void)
 	return -1;
 }
 HERE
-
-tup touch Tupfile main.c
 
 case $tupos in
 	Darwin*)
@@ -78,7 +75,6 @@ cat > Tupfile << HERE
 : foreach *.c |> gcc -c %f -o %o |> %B.o
 : main.o | sub/libfoo.a |> gcc %f -o %o sub/libfoo.a |> prog.exe
 HERE
-tup touch sub/lib2.c Tupfile
 update
 
 eotup

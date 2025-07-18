@@ -1,7 +1,7 @@
 #! /bin/sh -e
 # tup - A file-based build system
 #
-# Copyright (C) 2008-2021  Mike Shal <marfey@gmail.com>
+# Copyright (C) 2008-2024  Mike Shal <marfey@gmail.com>
 #
 # This program is free software; you can redistribute it and/or modify
 # it under the terms of the GNU General Public License version 2 as
@@ -20,14 +20,12 @@
 cp ../testTupfile.tup Tupfile
 
 echo "int main(void) {} void foo(void) {}" > foo.c
-tup touch foo.c Tupfile
 update
 sym_check foo.o foo
 sym_check prog.exe foo
 
 cat Tupfile | sed 's/prog/newprog/g' > tmpTupfile
 mv tmpTupfile Tupfile
-tup touch Tupfile
 update
 
 sym_check newprog.exe foo
