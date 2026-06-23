@@ -2,7 +2,7 @@
  *
  * tup - A file-based build system
  *
- * Copyright (C) 2008-2024  Mike Shal <marfey@gmail.com>
+ * Copyright (C) 2008-2026  Mike Shal <marfey@gmail.com>
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 as
@@ -1380,7 +1380,7 @@ int parser_include_file(struct tupfile *tf, const char *file)
 	int old_dfd = tf->cur_dfd;
 	struct tup_entry *srctent = NULL;
 	struct tup_entry *newtent;
-	char *lua;
+	const char *lua;
 
 	if(get_path_elements(file, &pg) < 0)
 		goto out_err;
@@ -1534,12 +1534,11 @@ static int parse_rule(struct tupfile *tf, char *p, int lno)
 		return -1;
 
 	if(r.command[0] == '!') {
-		char *space;
+		const char *space;
 		space = memchr(r.command, ' ', r.command_len);
 		if(space) {
-			*space = 0;
 			r.extra_command = space + 1;
-			r.command_len = strlen(r.command);
+			r.command_len = space - r.command;
 		}
 	}
 
@@ -4017,7 +4016,7 @@ static char *tup_printf(struct tupfile *tf, const char *cmd, int cmd_len,
 				 * directory from where .tup is stored, since
 				 * the top-level tup entry is just "."
 				 */
-				char *last_slash;
+				const char *last_slash;
 				const char *dirstring;
 				int len;
 

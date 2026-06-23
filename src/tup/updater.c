@@ -2,7 +2,7 @@
  *
  * tup - A file-based build system
  *
- * Copyright (C) 2008-2024  Mike Shal <marfey@gmail.com>
+ * Copyright (C) 2008-2026  Mike Shal <marfey@gmail.com>
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 as
@@ -2846,7 +2846,7 @@ static int expand_command(char **res,
 	tcmd = cmd;
 	while((percgroup = strstr(tcmd, "%<")) != NULL) {
 		int prelen = percgroup - tcmd;
-		char *endgroup;
+		const char *endgroup;
 
 		if(estring_append(&expanded_name, tcmd, prelen) < 0)
 			return -1;
